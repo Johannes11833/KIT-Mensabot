@@ -1,6 +1,7 @@
 import json
 import logging
 import pathlib
+import threading
 from datetime import datetime
 from enum import Enum
 from typing import Union, Dict
@@ -8,8 +9,7 @@ from typing import Union, Dict
 import pytz
 import requests
 from telegram import Update, CallbackQuery
-from telegram.ext import Updater, CommandHandler, CallbackContext, PicklePersistence, \
-    CallbackQueryHandler
+from telegram.ext import Updater, CommandHandler, CallbackContext, PicklePersistence, CallbackQueryHandler
 
 import callback_keyboards as keyboards
 from day import Day
@@ -37,6 +37,19 @@ class Server:
         # cache the json data
         self.canteen_data: Dict = {}
 
+        # timer for auto refreshing
+        self.timer: Union[threading.Timer, None] = None
+        print(f'Refresh timer set to {self.server_config.get("data_refresh_interval_seconds", 60 * 60 * 24)} seconds.')
+
+    def _start_refresh_timer(self):
+        if self.timer is not None and self.timer.is_alive():
+            self.timer.cancel()
+
+        refresh_interval = self.server_config.get('data_refresh_interval_seconds', 60 * 60 * 24)
+        self.timer = threading.Timer(refresh_interval, self.fetch_mensa_menu)
+        self.timer.start()
+
+    # api call handlers
     @staticmethod
     def set_canteen(update, _):
         keyboard = keyboards.get_callback_keyboard(callback_type=CallbackType.selected_canteen,
@@ -45,9 +58,11 @@ class Server:
                                                    )
         update.message.reply_text('Wähle ein Mensa aus:', reply_markup=keyboard)
 
-    @staticmethod
-    def get_user_selected_canteen(context: CallbackContext):
-        return context.user_data.get(USER_DATA_KEY_SELECTED_CANTEEN, Day.CANTEEN_KEY_MOLTKE)
+    def get_mensa_plan(self, update: Union[Update, CallbackQuery], context: CallbackContext):
+        out = self._get_reply_text(datetime.now(tz=pytz.timezone('Europe/Berlin')),
+                                   self.get_user_selected_canteen(context))
+
+        update.message.reply_text(out, parse_mode='HTML', reply_markup=keyboards.get_select_dates_keyboard())
 
     @staticmethod
     def start(update, _):
@@ -60,8 +75,13 @@ class Server:
         """Log Errors caused by Updates."""
         logger.warning('Update "%s" caused error "%s"', update, context.error)
 
+    @staticmethod
+    def get_user_selected_canteen(context: CallbackContext):
+        return context.user_data.get(USER_DATA_KEY_SELECTED_CANTEEN, Day.CANTEEN_KEY_MOLTKE)
+
     def start_server(self):
-        self.canteen_data = self.fetch_mensa_menu()
+        # fetch the data
+        self.fetch_mensa_menu()
 
         # create Data folder and initialize PicklePersistence of the bot's data
         pathlib.Path('./data').mkdir(exist_ok=True)
@@ -97,7 +117,8 @@ class Server:
         # start_polling() is non-blocking and will stop the bot gracefully.
         updater.idle()
 
-    def fetch_mensa_menu(self) -> Dict:
+    def fetch_mensa_menu(self, auto_refresh=True):
+        print('refreshing...')
         tmp_canteen_data = {}
 
         supported_canteens = Day.QUEUE_PROPERTIES.keys()
@@ -125,9 +146,13 @@ class Server:
                 # no valid data
                 tmp_canteen_data[canteen_key] = None
 
-        return tmp_canteen_data
+        self.canteen_data = tmp_canteen_data
 
-    def get_reply_text(self, timestamp: datetime, selected_canteen: str) -> Union[str, None]:
+        if auto_refresh:
+            # restart the refresh timer
+            self._start_refresh_timer()
+
+    def _get_reply_text(self, timestamp: datetime, selected_canteen: str) -> Union[str, None]:
         timestamp = timestamp.strftime('%d.%m.%Y')
 
         days_dict = self.canteen_data[selected_canteen]
@@ -157,12 +182,6 @@ class Server:
         else:
             return f'👾 Für den <strong> {timestamp}</strong> gibt es noch keinen Mensa Plan. 👾'
 
-    def get_mensa_plan(self, update: Union[Update, CallbackQuery], context: CallbackContext):
-        out = self.get_reply_text(datetime.now(tz=pytz.timezone('Europe/Berlin')),
-                                  self.get_user_selected_canteen(context))
-
-        update.message.reply_text(out, parse_mode='HTML', reply_markup=keyboards.get_select_dates_keyboard())
-
     def callbacks(self, update, context: CallbackContext):
         """
         callback method the selection of a day
@@ -181,7 +200,7 @@ class Server:
         if callback_type is CallbackType.selected_date:
 
             timestamp = datetime.strptime(data, '%d.%m.%Y')
-            out = self.get_reply_text(timestamp, self.get_user_selected_canteen(context))
+            out = self._get_reply_text(timestamp, self.get_user_selected_canteen(context))
 
             # edit the message previously sent by the bot
             query.edit_message_text(text=out, parse_mode='HTML', reply_markup=keyboards.get_select_dates_keyboard())
