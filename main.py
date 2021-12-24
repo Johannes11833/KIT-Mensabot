@@ -121,7 +121,7 @@ class Server:
         print('refreshing...')
         tmp_canteen_data = {}
 
-        supported_canteens = Day.QUEUE_PROPERTIES.keys()
+        supported_canteens = Day.QUEUE_NAMES.keys()
 
         for canteen_key in supported_canteens:
 
@@ -158,7 +158,7 @@ class Server:
         days_dict = self.canteen_data[selected_canteen]
         if days_dict is not None and timestamp in days_dict.keys():
             canteen_day: Day = days_dict[timestamp]
-            out: str = f'Menu der {canteen_day.get_name()} am <strong>{timestamp}</strong>:\n\n'
+            out: str = f'Speisepläne der {canteen_day.get_name()} am <strong>{timestamp}</strong>:\n\n'
 
             for queue in days_dict[timestamp].get_list():
                 if not queue.closed:

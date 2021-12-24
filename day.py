@@ -15,40 +15,51 @@ class Day:
     # canteen keys
     CANTEEN_KEY_ADENAUER = 'adenauerring'
     CANTEEN_KEY_MOLTKE = 'x1moltkestrasse'
+    CANTEEN_KEY_ERZBERGER = 'erzberger'
+    CANTEEN_KEY_GOTTESAUE = 'gottesaue'
+    CANTEEN_KEY_HOLZGARTEN = 'holzgarten'
+    CANTEEN_KEY_PFORZHEIM = 'tiefenbronner'
 
-    # adenauer ring
-    KEY_QUEUE_L1 = 'l1'
-    KEY_QUEUE_L2 = 'l2'
-    KEY_QUEUE_L3 = 'l3'
-    KEY_QUEUE_L45 = 'l45'
-    KEY_QUEUE_L5 = 'l5'
-    KEY_QUEUE_SCHNITZEL = 'schnitzelbar'
-    KEY_QUEUE_PIZZA = 'pizza'
-    KEY_QUEUE_PASTA = 'pasta'
-    KEY_QUEUE_KOERI = 'aktion'
-
-    # moltkestraße
-    KEY_QUEUE_GUT = 'gut'
-
-    QUEUE_PROPERTIES = {
+    QUEUE_NAMES = {
         CANTEEN_KEY_ADENAUER: {
-            KEY_QUEUE_L1: 'Linie 1',
-            KEY_QUEUE_L2: 'Linie 2',
-            KEY_QUEUE_L3: 'Linie 3',
-            KEY_QUEUE_L45: 'Linie 4',
-            KEY_QUEUE_L5: 'Linie 5',
-            KEY_QUEUE_SCHNITZEL: 'Schnitzelbar',
-            KEY_QUEUE_PIZZA: '[pizza]werk Pizza',
-            KEY_QUEUE_PASTA: '[pizza]werk Pasta',
-            KEY_QUEUE_KOERI: '[kœri]werk',
+            'l1': 'Linie 1',
+            'l2': 'Linie 2',
+            'l3': 'Linie 3',
+            'l45': 'Linie 4',
+            'l5': 'Linie 5',
+            'update': 'L6 Update',
+            'schnitzelbar': 'Schnitzelbar',
+            'pizza': '[pizza]werk Pizza',
+            'pasta': '[pizza]werk Pasta',
+            'aktion': '[kœri]werk',
         },
         CANTEEN_KEY_MOLTKE: {
-            KEY_QUEUE_GUT: 'Gut & Günstig'
-        }}
+            'gut': 'Gut & Günstig'
+        }, CANTEEN_KEY_ERZBERGER: {
+            'wahl1': 'Wahlessen 1',
+            'wahl2': 'Wahlessen 2',
+            'wahl3': 'Wahlessen 3'
+        }, CANTEEN_KEY_GOTTESAUE: {
+            'wahl1': 'Wahlessen 1',
+            'wahl2': 'Wahlessen 2'
+        }, CANTEEN_KEY_HOLZGARTEN: {
+            'gut': 'Gut & Günstig 1',
+            'gut2': 'Gut & Günstig 2'
+        }, CANTEEN_KEY_PFORZHEIM: {
+            'wahl1': 'Wahlessen 1',
+            'wahl2': 'Wahlessen 2',
+            'gut': 'Gut & Günstig',
+            'buffet': 'Buffet'
+        }
+    }
 
     CANTEEN_NAMES = {
         CANTEEN_KEY_ADENAUER: 'Mensa am Adenauer Ring',
-        CANTEEN_KEY_MOLTKE: 'Mensa Moltkestraße'
+        CANTEEN_KEY_MOLTKE: 'Mensa Moltkestraße',
+        CANTEEN_KEY_ERZBERGER: 'Mensa Erzbergerstraße',
+        CANTEEN_KEY_GOTTESAUE: 'Mensa Schloss Gottesaue',
+        CANTEEN_KEY_HOLZGARTEN: 'Mensa I Holzgartenstraße (Stuttgart-Mitte)',
+        CANTEEN_KEY_PFORZHEIM: 'Mensa Fachhochschule Pforzheim'
     }
 
     def __init__(self, canteen_key: str, data: dict, date: datetime) -> None:
@@ -56,7 +67,7 @@ class Day:
         self.canteen_key = canteen_key
         self.queue_dict: Dict[str, Queue] = {}
 
-        for q_key, q_name in self.QUEUE_PROPERTIES[canteen_key].items():
+        for q_key, q_name in self.QUEUE_NAMES[canteen_key].items():
             self.queue_dict[q_key] = Queue(q_name, data[q_key])
 
     def get_list(self) -> List[Queue]:
