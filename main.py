@@ -2,10 +2,9 @@ import json
 import locale
 import logging
 import pathlib
-import threading
 from datetime import datetime
 from enum import Enum
-from typing import Union, Dict
+from typing import Union, Dict, Set
 
 import pytz
 import requests
@@ -14,8 +13,10 @@ from telegram.ext import Updater, CommandHandler, CallbackContext, PicklePersist
 
 import callback_keyboards as keyboards
 from day import Day
+from scheduler import TimeScheduler, Task
 
 USER_DATA_KEY_SELECTED_CANTEEN = 'user_selected_canteen'
+BOT_DATA_KEY_PUSH_REGISTER = 'push_notification_uids'
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 class CallbackType(Enum):
     selected_date = 'selected_date'
     selected_canteen = 'selected_canteen'
-    show_menu = 'show_menu'
+    selected_show_menu = 'show_menu'
 
 
 class Server:
@@ -38,17 +39,7 @@ class Server:
         # cache the json data
         self.canteen_data: Dict = {}
 
-        # timer for auto refreshing
-        self.timer: Union[threading.Timer, None] = None
-        print(f'Refresh timer set to {self.server_config.get("data_refresh_interval_seconds", 60 * 60 * 24)} seconds.')
-
-    def _start_refresh_timer(self):
-        if self.timer is not None and self.timer.is_alive():
-            self.timer.cancel()
-
-        refresh_interval = self.server_config.get('data_refresh_interval_seconds', 60 * 60 * 24)
-        self.timer = threading.Timer(refresh_interval, self.fetch_mensa_menu)
-        self.timer.start()
+        self.updater: Union[Updater, None] = None
 
     # api call handlers
     @staticmethod
@@ -60,8 +51,7 @@ class Server:
         update.message.reply_text('Wähle ein Mensa aus:', reply_markup=keyboard)
 
     def get_mensa_plan(self, update: Union[Update, CallbackQuery], context: CallbackContext):
-        out = self._get_reply_text(datetime.now(tz=pytz.timezone('Europe/Berlin')),
-                                   self.get_user_selected_canteen(context))
+        out = self._get_reply_text(self.get_user_selected_canteen(context))
 
         keyboard = keyboards.get_select_dates_keyboard(days=self.canteen_data[self.get_user_selected_canteen(context)])
         update.message.reply_text(out, parse_mode='HTML', reply_markup=keyboard)
@@ -73,6 +63,18 @@ class Server:
             ' \n\nGebe /mensa ein, um loszulegen.')
 
     @staticmethod
+    def push_register(update: Update, context: CallbackContext):
+        register: Set = context.bot_data[BOT_DATA_KEY_PUSH_REGISTER]
+
+        chat_id = update.message.chat_id
+        if chat_id not in register:
+            register.add(chat_id)
+            update.message.reply_text('Push-Notifications wurden aktiviert ✅')
+        else:
+            register.remove(chat_id)
+            update.message.reply_text('Push-Notifications wurden deaktiviert ❌')
+
+    @staticmethod
     def error(update, context):
         """Log Errors caused by Updates."""
         logger.warning('Update "%s" caused error "%s"', update, context.error)
@@ -80,6 +82,22 @@ class Server:
     @staticmethod
     def get_user_selected_canteen(context: CallbackContext):
         return context.user_data.get(USER_DATA_KEY_SELECTED_CANTEEN, Day.CANTEEN_KEY_MOLTKE)
+
+    def _send_menu_push_notifications(self):
+        print(datetime.now().strftime('%d.%m.%Y'))
+        if datetime.now().strftime('%d.%m.%Y') in self.canteen_data.keys():
+            print('sending push')
+            dp = self.updater.dispatcher
+            chat_ids = dp.bot_data[BOT_DATA_KEY_PUSH_REGISTER]
+
+            keyboard = keyboards.get_select_dates_keyboard(
+                days=self.canteen_data[self.get_user_selected_canteen(dp)])
+
+            for c in chat_ids:
+                self.updater.bot.send_message(c, self._get_reply_text(self.get_user_selected_canteen(dp)),
+                                              parse_mode='HTML', reply_markup=keyboard)
+        else:
+            print('no data available for today. not sending push')
 
     def start_server(self):
         locale.setlocale(locale.LC_TIME, 'de_DE.UTF-8')
@@ -99,30 +117,42 @@ class Server:
         # Create the Updater and pass it your bot's token.
         # Make sure to set use_context=True to use the new context based callbacks
         # Post version 12 this will no longer be necessary
-        updater = Updater(telegram_token, use_context=True, persistence=persistence)
+        self.updater = Updater(telegram_token, use_context=True, persistence=persistence)
 
         # Get the dispatcher to register handlers
-        dp = updater.dispatcher
+        dp = self.updater.dispatcher
+
+        # Create the push subscriber register
+        if BOT_DATA_KEY_PUSH_REGISTER not in dp.bot_data.keys():
+            # use a set to store the chat ids so every id can only exist once in ti
+            dp.bot_data[BOT_DATA_KEY_PUSH_REGISTER] = set()
 
         # on different commands - answer in Telegram
         dp.add_handler(CommandHandler("start", self.start))
         dp.add_handler(CommandHandler("mensa", self.get_mensa_plan))
         dp.add_handler(CommandHandler("set_mensa", self.set_canteen))
+        dp.add_handler(CommandHandler("push", self.push_register))
         dp.add_handler(CallbackQueryHandler(self.callbacks))  # handling inline buttons pressing
 
         # log all errors
         dp.add_error_handler(self.error)
 
         # Start the Bot
-        updater.start_polling()
+        self.updater.start_polling()
+
+        # schedule data refresh and push notifications
+        ts = TimeScheduler()
+        ts.add(Task(self.server_config.get('push_notification_time', '09:00'), self._send_menu_push_notifications))
+        ts.add(Task(self.server_config.get('data_refresh_time', '03:00'), self.fetch_mensa_menu))
+        ts.start()
 
         # Run the bot until you press Ctrl-C or the process receives SIGINT,
         # SIGTERM or SIGABRT. This should be used most of the time, since
         # start_polling() is non-blocking and will stop the bot gracefully.
-        updater.idle()
+        self.updater.idle()
 
-    def fetch_mensa_menu(self, auto_refresh=True):
-        print('refreshing...')
+    def fetch_mensa_menu(self):
+        print('refreshing data...')
         tmp_canteen_data = {}
 
         supported_canteens = Day.QUEUE_NAMES.keys()
@@ -152,12 +182,8 @@ class Server:
 
         self.canteen_data = tmp_canteen_data
 
-        if auto_refresh:
-            # restart the refresh timer
-            self._start_refresh_timer()
-
-    def _get_reply_text(self, timestamp: datetime, selected_canteen: str) -> Union[str, None]:
-        timestamp = timestamp.strftime('%d.%m.%Y')
+    def _get_reply_text(self, selected_canteen: str, timestamp: datetime = None) -> Union[str, None]:
+        timestamp = (timestamp if timestamp else datetime.now()).strftime('%d.%m.%Y')
 
         days_dict = self.canteen_data[selected_canteen]
         if days_dict is not None and timestamp in days_dict.keys():
@@ -204,7 +230,7 @@ class Server:
         if callback_type is CallbackType.selected_date:
 
             timestamp = datetime.strptime(data, '%d.%m.%Y')
-            out = self._get_reply_text(timestamp, self.get_user_selected_canteen(context))
+            out = self._get_reply_text(self.get_user_selected_canteen(context), timestamp=timestamp)
 
             # edit the message previously sent by the bot
             keyboard = keyboards.get_select_dates_keyboard(
@@ -214,8 +240,8 @@ class Server:
             context.user_data[USER_DATA_KEY_SELECTED_CANTEEN] = data
             query.edit_message_text(text=f'<strong>{Day.CANTEEN_NAMES[data]}</strong> wurde ausgewählt.',
                                     parse_mode='HTML',
-                                    reply_markup=keyboards.get_callback_keyboard(CallbackType.show_menu, ['show_menu'],
-                                                                                 ['Show Menu']))
+                                    reply_markup=keyboards.get_callback_keyboard(CallbackType.selected_show_menu,
+                                                                                 ['show_menu'], ['Show Menu']))
         else:
             # show the menu
             self.get_mensa_plan(query, context)
