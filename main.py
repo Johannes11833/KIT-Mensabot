@@ -1,4 +1,5 @@
 import json
+import locale
 import logging
 import pathlib
 import threading
@@ -62,7 +63,8 @@ class Server:
         out = self._get_reply_text(datetime.now(tz=pytz.timezone('Europe/Berlin')),
                                    self.get_user_selected_canteen(context))
 
-        update.message.reply_text(out, parse_mode='HTML', reply_markup=keyboards.get_select_dates_keyboard())
+        keyboard = keyboards.get_select_dates_keyboard(days=self.canteen_data[self.get_user_selected_canteen(context)])
+        update.message.reply_text(out, parse_mode='HTML', reply_markup=keyboard)
 
     @staticmethod
     def start(update, _):
@@ -80,6 +82,8 @@ class Server:
         return context.user_data.get(USER_DATA_KEY_SELECTED_CANTEEN, Day.CANTEEN_KEY_MOLTKE)
 
     def start_server(self):
+        locale.setlocale(locale.LC_TIME, 'de_DE.UTF-8')
+
         # fetch the data
         self.fetch_mensa_menu()
 
@@ -203,7 +207,9 @@ class Server:
             out = self._get_reply_text(timestamp, self.get_user_selected_canteen(context))
 
             # edit the message previously sent by the bot
-            query.edit_message_text(text=out, parse_mode='HTML', reply_markup=keyboards.get_select_dates_keyboard())
+            keyboard = keyboards.get_select_dates_keyboard(
+                days=self.canteen_data[self.get_user_selected_canteen(context)])
+            query.edit_message_text(text=out, parse_mode='HTML', reply_markup=keyboard)
         elif callback_type is CallbackType.selected_canteen:
             context.user_data[USER_DATA_KEY_SELECTED_CANTEEN] = data
             query.edit_message_text(text=f'<strong>{Day.CANTEEN_NAMES[data]}</strong> wurde ausgewählt.',
