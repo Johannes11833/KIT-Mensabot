@@ -84,7 +84,6 @@ class Server:
         return context.user_data.get(USER_DATA_KEY_SELECTED_CANTEEN, Day.CANTEEN_KEY_MOLTKE)
 
     def _send_menu_push_notifications(self):
-        print(datetime.now().strftime('%d.%m.%Y'))
         if datetime.now().strftime('%d.%m.%Y') in self.canteen_data.keys():
             print('sending push')
             dp = self.updater.dispatcher
