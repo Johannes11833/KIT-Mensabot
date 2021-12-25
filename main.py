@@ -1,5 +1,4 @@
 import json
-import locale
 import logging
 import pathlib
 from datetime import datetime
@@ -17,11 +16,6 @@ from scheduler import TimeScheduler, Task
 
 USER_DATA_KEY_SELECTED_CANTEEN = 'user_selected_canteen'
 BOT_DATA_KEY_PUSH_REGISTER = 'push_notification_uids'
-
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
-
-logger = logging.getLogger(__name__)
 
 
 class CallbackType(Enum):
@@ -41,6 +35,8 @@ class Server:
         self.canteen_data: Dict = {}
 
         self.updater: Union[Updater, None] = None
+
+        self.logger: Union[logging.Logger, None] = None
 
     # api call handlers
     @staticmethod
@@ -78,10 +74,9 @@ class Server:
             update.message.reply_text('Automatische Benachrichtigungen wurden deaktiviert ❌ '
                                       '\nDu wirst keine automatischen Updates mehr bekommen.')
 
-    @staticmethod
-    def error(update, context):
+    def error(self, update, context):
         """Log Errors caused by Updates."""
-        logger.warning('Update "%s" caused error "%s"', update, context.error)
+        self.logger.warning('Update "%s" caused error "%s"', update, context.error)
 
     @staticmethod
     def get_user_selected_canteen(context: CallbackContext):
@@ -103,18 +98,25 @@ class Server:
             print('no data available for today. not sending push')
 
     def start_server(self):
-        locale.setlocale(locale.LC_TIME, 'de_DE.UTF-8')
-
-        # fetch the data
-        self._fetch_mensa_menu()
-
         # create Data folder and initialize PicklePersistence of the bot's data
         pathlib.Path('./data').mkdir(exist_ok=True)
         persistence = PicklePersistence('./data/bot_data.pkl')
 
+        # setup logger
+        logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                            level=logging.INFO,
+                            handlers=[
+                                logging.FileHandler("data/server_log.log"),
+                                logging.StreamHandler()
+                            ])
+        self.logger = logging.getLogger(__name__)
+
         # get the token
         with open('data/config.json') as json_file:
             telegram_token = json.load(json_file)['telegram_token']
+
+        # fetch the data
+        self._fetch_mensa_menu()
 
         """Start the bot."""
         # Create the Updater and pass it your bot's token.
@@ -155,7 +157,7 @@ class Server:
         self.updater.idle()
 
     def _fetch_mensa_menu(self):
-        logger.info('refreshing data...')
+        self.logger.info('refreshing data...')
         tmp_canteen_data = {}
 
         supported_canteens = Day.QUEUE_NAMES.keys()

@@ -7,13 +7,22 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from main import CallbackType
 
 
+def _german_weekday_name(name: str):
+    translations = {'Mon': 'Mo', 'Tue': 'Di', 'Wed': 'Mi', 'Thu': 'Do', 'Fr': 'Fr'}
+
+    if name in translations.keys():
+        return translations[name]
+    else:
+        return name
+
+
 def get_select_dates_keyboard(days: Dict) -> InlineKeyboardMarkup:
     count = 0
     delta_t = 0
     data = []
     action_text = []
 
-    while count < 4:
+    while count < 5:
         timestamp = datetime.now() + timedelta(days=delta_t)
         timestamp_str = (datetime.now() + timedelta(days=delta_t)).strftime('%d.%m.%Y')
 
@@ -24,7 +33,7 @@ def get_select_dates_keyboard(days: Dict) -> InlineKeyboardMarkup:
             elif delta_t == 1:
                 name = 'Morgen'
             elif delta_t < 7:
-                name = timestamp.strftime('%a')
+                name = _german_weekday_name(timestamp.strftime('%a'))
             else:
                 name = timestamp.strftime('%d.%m')
 
