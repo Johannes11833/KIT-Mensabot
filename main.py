@@ -102,7 +102,7 @@ class Server:
         locale.setlocale(locale.LC_TIME, 'de_DE.UTF-8')
 
         # fetch the data
-        self.fetch_mensa_menu()
+        self._fetch_mensa_menu()
 
         # create Data folder and initialize PicklePersistence of the bot's data
         pathlib.Path('./data').mkdir(exist_ok=True)
@@ -142,7 +142,7 @@ class Server:
         # schedule data refresh and push notifications
         ts = TimeScheduler()
         ts.add(Task(self.server_config.get('push_notification_time', '09:00'), self._send_menu_push_notifications))
-        ts.add(Task(self.server_config.get('data_refresh_time', '03:00'), self.fetch_mensa_menu))
+        ts.add(Task(self.server_config.get('data_refresh_time', '03:00'), self._fetch_mensa_menu))
         ts.start()
 
         # Run the bot until you press Ctrl-C or the process receives SIGINT,
@@ -150,8 +150,8 @@ class Server:
         # start_polling() is non-blocking and will stop the bot gracefully.
         self.updater.idle()
 
-    def fetch_mensa_menu(self):
-        print('refreshing data...')
+    def _fetch_mensa_menu(self):
+        logger.info('refreshing data...')
         tmp_canteen_data = {}
 
         supported_canteens = Day.QUEUE_NAMES.keys()

@@ -1,8 +1,9 @@
-import threading
-import time
+import atexit
+import datetime
 from typing import Dict, Callable
 
-import schedule
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 
 class Task:
@@ -21,20 +22,20 @@ class Task:
 class TimeScheduler:
 
     def __init__(self):
-        self.thread = None
         self.task_list = []
 
-    def _run_schedule(self):
-        for task in self.task_list:
-            schedule.every().day.at(task.target_time).do(task.function, **task.args)
-
-        while True:
-            schedule.run_pending()
-            time.sleep(1)
-
     def start(self):
-        self.thread = threading.Thread(target=self._run_schedule)
-        self.thread.start()
+        scheduler = BackgroundScheduler()
+
+        for task in self.task_list:
+            t = datetime.time.fromisoformat(task.target_time)
+            trigger = CronTrigger(hour=t.hour, minute=t.minute, second=t.second)
+            scheduler.add_job(func=task.function, trigger=trigger)
+
+        scheduler.start()
+
+        # Shut down the scheduler when exiting the app
+        atexit.register(lambda: scheduler.shutdown())
 
     def add(self, task: Task):
         self.task_list.append(task)
