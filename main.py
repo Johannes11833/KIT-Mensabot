@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 class CallbackType(Enum):
     selected_date = 'selected_date'
     selected_canteen = 'selected_canteen'
+    reselect_canteen = 'select_another_canteen'
     selected_show_menu = 'show_menu'
 
 
@@ -45,8 +46,9 @@ class Server:
     @staticmethod
     def set_canteen(update, _):
         keyboard = keyboards.get_callback_keyboard(callback_type=CallbackType.selected_canteen,
-                                                   data=Day.CANTEEN_NAMES.keys(),
-                                                   action_text=Day.CANTEEN_NAMES.values()
+                                                   data=list(Day.CANTEEN_NAMES.keys()),
+                                                   action_text=list(Day.CANTEEN_NAMES.values()),
+                                                   one_per_row=True
                                                    )
         update.message.reply_text('Wähle ein Mensa aus:', reply_markup=keyboard)
 
@@ -59,8 +61,9 @@ class Server:
     @staticmethod
     def start(update, _):
         update.message.reply_text(
-            'Moin Meister! Ich bin ein Bot, der dir den aktuellen Mensaplan des KITs anzeigen kann.'
-            ' \n\nGebe /mensa ein, um loszulegen.')
+            'Moin Meister! '
+            'Ich bin ein Bot, der dir den aktuellen Speiseplan der Mensen in Karlsruhe anzeigen kann. '
+            '\n\nGebe /mensa ein, um loszulegen.')
 
     @staticmethod
     def push_register(update: Update, context: CallbackContext):
@@ -69,10 +72,11 @@ class Server:
         chat_id = update.message.chat_id
         if chat_id not in register:
             register.add(chat_id)
-            update.message.reply_text('Push-Notifications wurden aktiviert ✅')
+            update.message.reply_text('Automatische Benachrichtigungen wurden aktiviert ✅')
         else:
             register.remove(chat_id)
-            update.message.reply_text('Push-Notifications wurden deaktiviert ❌')
+            update.message.reply_text('Automatische Benachrichtigungen wurden deaktiviert ❌ '
+                                      '\nDu wirst keine automatischen Updates mehr bekommen.')
 
     @staticmethod
     def error(update, context):
@@ -128,8 +132,8 @@ class Server:
 
         # on different commands - answer in Telegram
         dp.add_handler(CommandHandler("start", self.start))
-        dp.add_handler(CommandHandler("mensa", self.get_mensa_plan))
-        dp.add_handler(CommandHandler("set_mensa", self.set_canteen))
+        dp.add_handler(CommandHandler("menu", self.get_mensa_plan))
+        dp.add_handler(CommandHandler("mensa", self.set_canteen))
         dp.add_handler(CommandHandler("push", self.push_register))
         dp.add_handler(CallbackQueryHandler(self.callbacks))  # handling inline buttons pressing
 
@@ -239,10 +243,16 @@ class Server:
             context.user_data[USER_DATA_KEY_SELECTED_CANTEEN] = data
             query.edit_message_text(text=f'<strong>{Day.CANTEEN_NAMES[data]}</strong> wurde ausgewählt.',
                                     parse_mode='HTML',
-                                    reply_markup=keyboards.get_callback_keyboard(CallbackType.selected_show_menu,
-                                                                                 ['show_menu'], ['Show Menu']))
+                                    reply_markup=keyboards.get_callback_keyboard(
+                                        [CallbackType.selected_show_menu, CallbackType.reselect_canteen],
+                                        [None, None],
+                                        ['Speiseplan anzeigen',
+                                         'Andere Mensa wählen']))
+        elif callback_type is CallbackType.reselect_canteen:
+            self.set_canteen(query, context)
+
         else:
-            # show the menu
+            # show the menu by default
             self.get_mensa_plan(query, context)
 
 

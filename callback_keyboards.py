@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timedelta
-from typing import List, Dict
+from typing import List, Dict, Union
 
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -39,10 +39,18 @@ def get_select_dates_keyboard(days: Dict) -> InlineKeyboardMarkup:
                                  )
 
 
-def get_callback_keyboard(callback_type: CallbackType, data: List, action_text: List):
+def get_callback_keyboard(callback_type: Union[CallbackType, List[CallbackType]], data: List, action_text: List,
+                          one_per_row=False):
     keyboard = []
-    for d, a in zip(data, action_text):
-        keyboard.append(
-            InlineKeyboardButton(a, callback_data=json.dumps({'type': callback_type.value, 'data': d})), )
 
-    return InlineKeyboardMarkup([keyboard])
+    is_type_list = isinstance(callback_type, list) or isinstance(callback_type, tuple)
+    for index in range(0, len(action_text)):
+        d_type_str = callback_type[index].value if is_type_list else callback_type.value
+        keyboard.append(
+            InlineKeyboardButton(action_text[index],
+                                 callback_data=json.dumps({'type': d_type_str, 'data': data[index]})), )
+
+    if not one_per_row:
+        return InlineKeyboardMarkup([keyboard])
+    else:
+        return InlineKeyboardMarkup([[item] for item in keyboard])
