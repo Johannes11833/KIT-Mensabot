@@ -8,7 +8,7 @@ from main import CallbackType
 
 
 def _german_weekday_name(name: str):
-    translations = {'Mon': 'Mo', 'Tue': 'Di', 'Wed': 'Mi', 'Thu': 'Do', 'Fr': 'Fr'}
+    translations = {'Mon': 'Mo', 'Tue': 'Di', 'Wed': 'Mi', 'Thu': 'Do', 'Fri': 'Fr'}
 
     if name in translations.keys():
         return translations[name]

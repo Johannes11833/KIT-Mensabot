@@ -84,7 +84,7 @@ class Server:
 
     def _send_menu_push_notifications(self):
         if datetime.now().strftime('%d.%m.%Y') in self.canteen_data.keys():
-            print('sending push')
+            self.logger.info('sending push')
             dp = self.updater.dispatcher
             chat_ids = dp.bot_data[BOT_DATA_KEY_PUSH_REGISTER]
 
@@ -95,7 +95,7 @@ class Server:
                 self.updater.bot.send_message(c, self._get_reply_text(self.get_user_selected_canteen(dp)),
                                               parse_mode='HTML', reply_markup=keyboard)
         else:
-            print('no data available for today. not sending push')
+            self.logger.info('no data available for today. not sending push')
 
     def start_server(self):
         # create Data folder and initialize PicklePersistence of the bot's data
