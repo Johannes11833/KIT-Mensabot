@@ -71,7 +71,7 @@ class Day:
             self.queue_dict[q_key] = Queue(q_name, data[q_key])
 
     def get_list(self) -> List[Queue]:
-        return self.queue_dict.values()
+        return list(self.queue_dict.values())
 
     def get_name(self):
         return self.CANTEEN_NAMES[self.canteen_key]

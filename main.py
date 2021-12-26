@@ -1,7 +1,7 @@
 import json
 import logging
 import pathlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from typing import Union, Dict, Set
 
@@ -12,9 +12,11 @@ from telegram.ext import Updater, CommandHandler, CallbackContext, PicklePersist
 
 import callback_keyboards as keyboards
 from day import Day
+from meal import Meal
 from scheduler import TimeScheduler, Task
 
-USER_DATA_KEY_SELECTED_CANTEEN = 'user_selected_canteen'
+CHAT_DATA_KEY_SELECTED_CANTEEN = 'user_selected_canteen'
+CHAT_DATA_KEY_SELECTED_PRICE_GROUP = 'user_selected_price_group'
 BOT_DATA_KEY_PUSH_REGISTER = 'push_notification_uids'
 
 
@@ -23,6 +25,7 @@ class CallbackType(Enum):
     selected_canteen = 'selected_canteen'
     reselect_canteen = 'select_another_canteen'
     selected_show_menu = 'show_menu'
+    selected_set_price_group = 'selected_set_price_group'
 
 
 class Server:
@@ -49,7 +52,7 @@ class Server:
         update.message.reply_text('Wähle ein Mensa aus:', reply_markup=keyboard)
 
     def get_mensa_plan(self, update: Union[Update, CallbackQuery], context: CallbackContext):
-        out = self._get_reply_text(self.get_user_selected_canteen(context=context))
+        out = self._get_reply_text(context.chat_data)
 
         keyboard = keyboards.get_select_dates_keyboard(
             days=self.canteen_data[self.get_user_selected_canteen(context=context)])
@@ -75,6 +78,15 @@ class Server:
             update.message.reply_text('Automatische Benachrichtigungen wurden deaktiviert ❌ '
                                       '\nDu wirst keine automatischen Updates mehr bekommen.')
 
+    @staticmethod
+    def set_price_group(update: Update, _):
+        keyboard = keyboards.get_callback_keyboard(callback_type=CallbackType.selected_set_price_group,
+                                                   data=Meal.get_price_group_keys(),
+                                                   action_text=Meal.get_price_group_names(),
+                                                   one_per_row=True
+                                                   )
+        update.message.reply_text('Wähle eine Preisgruppe aus:', reply_markup=keyboard)
+
     def error(self, update, context):
         """Log Errors caused by Updates."""
         self.logger.warning('Update "%s" caused error "%s"', update, context.error)
@@ -84,9 +96,9 @@ class Server:
         assert not (context is None and chat_data is None)
 
         if chat_data is not None:
-            return chat_data.get(USER_DATA_KEY_SELECTED_CANTEEN, Day.CANTEEN_KEY_ADENAUER)
+            return chat_data.get(CHAT_DATA_KEY_SELECTED_CANTEEN, Day.CANTEEN_KEY_ADENAUER)
         else:
-            return context.chat_data.get(USER_DATA_KEY_SELECTED_CANTEEN, Day.CANTEEN_KEY_ADENAUER)
+            return context.chat_data.get(CHAT_DATA_KEY_SELECTED_CANTEEN, Day.CANTEEN_KEY_ADENAUER)
 
     def _send_menu_push_notifications(self):
         if datetime.now().strftime('%d.%m.%Y') in self.canteen_data.keys():
@@ -95,10 +107,11 @@ class Server:
             chat_ids = dp.bot_data[BOT_DATA_KEY_PUSH_REGISTER]
 
             for c_id in chat_ids:
-                selected_canteen_id = self.get_user_selected_canteen(chat_data=dp.chat_data[c_id])
+                chat_data = dp.chat_data[c_id]
+                selected_canteen_id = self.get_user_selected_canteen(chat_data=chat_data)
                 keyboard = keyboards.get_select_dates_keyboard(days=self.canteen_data[selected_canteen_id])
 
-                self.updater.bot.send_message(c_id, self._get_reply_text(selected_canteen_id),
+                self.updater.bot.send_message(c_id, self._get_reply_text(chat_data),
                                               parse_mode='HTML', reply_markup=keyboard)
         else:
             self.logger.info('no data available for today. not sending push')
@@ -143,6 +156,7 @@ class Server:
         dp.add_handler(CommandHandler("menu", self.get_mensa_plan))
         dp.add_handler(CommandHandler("mensa", self.set_canteen))
         dp.add_handler(CommandHandler("push", self.push_register))
+        dp.add_handler(CommandHandler("price", self.set_price_group))
         dp.add_handler(CallbackQueryHandler(self.callbacks))  # handling inline buttons pressing
 
         # log all errors
@@ -193,8 +207,10 @@ class Server:
 
         self.canteen_data = tmp_canteen_data
 
-    def _get_reply_text(self, selected_canteen: str, timestamp: datetime = None) -> Union[str, None]:
-        timestamp = (timestamp if timestamp else datetime.now()).strftime('%d.%m.%Y')
+    def _get_reply_text(self, chat_data: dict, timestamp: datetime = None) -> Union[str, None]:
+        timestamp = (timestamp if timestamp else datetime.now() + timedelta(days=8)).strftime('%d.%m.%Y')
+
+        selected_canteen = self.get_user_selected_canteen(chat_data=chat_data)
 
         days_dict = self.canteen_data[selected_canteen]
         if days_dict is not None and timestamp in days_dict.keys():
@@ -209,8 +225,10 @@ class Server:
                     # meals
                     for meal in queue.meals:
                         out += f'•{meal.meal_name}'
-                        if meal.price != 0:
-                            out += ': <u>{:,.2f}€</u>'.format(meal.price)
+
+                        price = meal.get_price(chat_data.get(CHAT_DATA_KEY_SELECTED_PRICE_GROUP, None))
+                        if price != 0:
+                            out += ': <u>{:,.2f}€</u>'.format(price)
 
                         if meal.dish_description:
                             out += f' (<i>{meal.dish_description}</i>)'
@@ -243,14 +261,14 @@ class Server:
             selected_canteen = self.get_user_selected_canteen(context=context)
 
             timestamp = datetime.strptime(data, '%d.%m.%Y')
-            out = self._get_reply_text(selected_canteen, timestamp=timestamp)
+            out = self._get_reply_text(context.chat_data, timestamp=timestamp)
 
             # edit the message previously sent by the bot
             keyboard = keyboards.get_select_dates_keyboard(
                 days=self.canteen_data[selected_canteen])
             query.edit_message_text(text=out, parse_mode='HTML', reply_markup=keyboard)
         elif callback_type is CallbackType.selected_canteen:
-            context.chat_data[USER_DATA_KEY_SELECTED_CANTEEN] = data
+            context.chat_data[CHAT_DATA_KEY_SELECTED_CANTEEN] = data
             query.edit_message_text(text=f'<strong>{Day.CANTEEN_NAMES[data]}</strong> wurde ausgewählt.',
                                     parse_mode='HTML',
                                     reply_markup=keyboards.get_callback_keyboard(
@@ -260,7 +278,10 @@ class Server:
                                          'Andere Mensa wählen']))
         elif callback_type is CallbackType.reselect_canteen:
             self.set_canteen(query, context)
+        elif callback_type is CallbackType.selected_set_price_group:
+            context.chat_data[CHAT_DATA_KEY_SELECTED_PRICE_GROUP] = data
 
+            query.edit_message_text(f'Preisgruppe \'{Meal.get_price_group(data)}\' wurde ausgewählt.')
         else:
             # show the menu by default
             self.get_mensa_plan(query, context)
