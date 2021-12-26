@@ -31,9 +31,6 @@ class Meal:
         }
 
     def get_price(self, price_group: str = KEY_NAME_PRICE) -> float:
-        if price_group is None:
-            price_group = self.KEY_NAME_PRICE
-
         return self.price_dict[price_group]
 
     @classmethod
@@ -43,6 +40,10 @@ class Meal:
     @classmethod
     def get_price_group_names(cls) -> List:
         return list(cls.PRICE_GROUPS.values())
+
+    @classmethod
+    def get_price_group_name(cls, key: str) -> List:
+        return cls.PRICE_GROUPS[key]
 
     @classmethod
     def get_price_group(cls, key: str) -> List:

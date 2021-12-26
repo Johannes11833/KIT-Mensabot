@@ -11,13 +11,11 @@ from telegram import Update, CallbackQuery
 from telegram.ext import Updater, CommandHandler, CallbackContext, PicklePersistence, CallbackQueryHandler, Dispatcher
 
 import callback_keyboards as keyboards
+import keys as keys
+import server_tools as server_tools
 from day import Day
 from meal import Meal
 from scheduler import TimeScheduler, Task
-
-CHAT_DATA_KEY_SELECTED_CANTEEN = 'user_selected_canteen'
-CHAT_DATA_KEY_SELECTED_PRICE_GROUP = 'user_selected_price_group'
-BOT_DATA_KEY_PUSH_REGISTER = 'push_notification_uids'
 
 
 class CallbackType(Enum):
@@ -55,27 +53,45 @@ class Server:
         out = self._get_reply_text(context.chat_data)
 
         keyboard = keyboards.get_select_dates_keyboard(
-            days=self.canteen_data[self.get_user_selected_canteen(context=context)])
+            days=self.canteen_data[server_tools.get_user_selected_canteen(context=context)])
         update.message.reply_text(out, parse_mode='HTML', reply_markup=keyboard)
 
     def get_mensa_plan_all(self, update: Union[Update, CallbackQuery], context: CallbackContext):
         out = 'Alle derzeit verfügbaren Tage:'
 
         keyboard = keyboards.get_select_dates_keyboard(
-            days=self.canteen_data[self.get_user_selected_canteen(context=context)],
+            days=self.canteen_data[server_tools.get_user_selected_canteen(context=context)],
             show_all=True)
         update.message.reply_text(out, parse_mode='HTML', reply_markup=keyboard)
 
     @staticmethod
     def start(update, _):
+        all_canteens = Day.get_all_names().__str__().replace("'", "").replace('[', '').replace(']', '')
+
         update.message.reply_text(
             'Moin Meister! '
             'Ich bin ein Bot, der dir den aktuellen Speiseplan der Mensen in Karlsruhe anzeigen kann. '
-            '\n\nGebe /mensa ein, um loszulegen.')
+            '\n\n🏠 <strong>Unterstützte Mensen</strong>'
+            f"\n{all_canteens}"
+            '\n\n⚙️ <strong>Konfiguration</strong>'
+            '\n• /mensa legt die zu verwendende Mensa fest'
+            '\n• /price legt die Preisklasse fest. Default ist Student.'
+            '\n• /push aktiviert/ deaktiviert automatische Benachrichtigungen'
+            '\n\n🎉 <strong>Anderes</strong>'
+            '\n• /memes hochwertige, zufällige Memes vom KaIT Subreddit',
+            parse_mode='HTML')
+
+    @staticmethod
+    def memes(update: Update, _):
+        result = server_tools.get_meme(subreddit='KaIT')
+
+        update.message.reply_text(f'Hier ein Post von KaIT:\n\n<a href="{result["postLink"]}">{result["title"]}</a>',
+                                  parse_mode='HTML', disable_web_page_preview=True)
+        update.message.reply_photo(result['url'])
 
     @staticmethod
     def push_register(update: Update, context: CallbackContext):
-        register: Set = context.bot_data[BOT_DATA_KEY_PUSH_REGISTER]
+        register: Set = context.bot_data[keys.BOT_DATA_KEY_PUSH_REGISTER]
 
         chat_id = update.message.chat_id
         if chat_id not in register:
@@ -87,36 +103,29 @@ class Server:
                                       '\nDu wirst keine automatischen Updates mehr bekommen.')
 
     @staticmethod
-    def set_price_group(update: Update, _):
+    def set_price_group(update: Update, context: CallbackContext):
         keyboard = keyboards.get_callback_keyboard(callback_type=CallbackType.selected_set_price_group,
                                                    data=Meal.get_price_group_keys(),
                                                    action_text=Meal.get_price_group_names(),
                                                    one_per_row=True
                                                    )
-        update.message.reply_text('Wähle eine Preisgruppe aus:', reply_markup=keyboard)
+        current = Meal.get_price_group_name(server_tools.get_pricegroup(context.chat_data))
+        update.message.reply_text(f'Aktuell eingestellte Preisgruppe: <strong>{current}</strong>\n\n'
+                                  f'Preisgruppe ändern:', reply_markup=keyboard, parse_mode='HTML')
 
     def error(self, update, context):
         """Log Errors caused by Updates."""
         self.logger.warning('Update "%s" caused error "%s"', update, context.error)
 
-    @staticmethod
-    def get_user_selected_canteen(context: CallbackContext = None, chat_data: Dict = None):
-        assert not (context is None and chat_data is None)
-
-        if chat_data is not None:
-            return chat_data.get(CHAT_DATA_KEY_SELECTED_CANTEEN, Day.CANTEEN_KEY_ADENAUER)
-        else:
-            return context.chat_data.get(CHAT_DATA_KEY_SELECTED_CANTEEN, Day.CANTEEN_KEY_ADENAUER)
-
     def _send_menu_push_notifications(self):
         if datetime.now().strftime('%d.%m.%Y') in self.canteen_data.keys():
             self.logger.info('sending push')
             dp: Dispatcher = self.updater.dispatcher
-            chat_ids = dp.bot_data[BOT_DATA_KEY_PUSH_REGISTER]
+            chat_ids = dp.bot_data[keys.BOT_DATA_KEY_PUSH_REGISTER]
 
             for c_id in chat_ids:
                 chat_data = dp.chat_data[c_id]
-                selected_canteen_id = self.get_user_selected_canteen(chat_data=chat_data)
+                selected_canteen_id = server_tools.get_user_selected_canteen(chat_data=chat_data)
                 keyboard = keyboards.get_select_dates_keyboard(days=self.canteen_data[selected_canteen_id])
 
                 self.updater.bot.send_message(c_id, self._get_reply_text(chat_data),
@@ -155,9 +164,9 @@ class Server:
         dp = self.updater.dispatcher
 
         # Create the push subscriber register
-        if BOT_DATA_KEY_PUSH_REGISTER not in dp.bot_data.keys():
+        if keys.BOT_DATA_KEY_PUSH_REGISTER not in dp.bot_data.keys():
             # use a set to store the chat ids so every id can only exist once in ti
-            dp.bot_data[BOT_DATA_KEY_PUSH_REGISTER] = set()
+            dp.bot_data[keys.BOT_DATA_KEY_PUSH_REGISTER] = set()
 
         # on different commands - answer in Telegram
         dp.add_handler(CommandHandler("start", self.start))
@@ -166,6 +175,7 @@ class Server:
         dp.add_handler(CommandHandler("mensa", self.set_canteen))
         dp.add_handler(CommandHandler("push", self.push_register))
         dp.add_handler(CommandHandler("price", self.set_price_group))
+        dp.add_handler(CommandHandler("memes", self.memes))
         dp.add_handler(CallbackQueryHandler(self.callbacks))  # handling inline buttons pressing
 
         # log all errors
@@ -219,7 +229,7 @@ class Server:
     def _get_reply_text(self, chat_data: dict, timestamp: datetime = None) -> Union[str, None]:
         timestamp = (timestamp if timestamp else datetime.now()).strftime('%d.%m.%Y')
 
-        selected_canteen = self.get_user_selected_canteen(chat_data=chat_data)
+        selected_canteen = server_tools.get_user_selected_canteen(chat_data=chat_data)
 
         days_dict = self.canteen_data[selected_canteen]
         if days_dict is not None and timestamp in days_dict.keys():
@@ -235,7 +245,7 @@ class Server:
                     for meal in queue.meals:
                         out += f'•{meal.meal_name}'
 
-                        price = meal.get_price(chat_data.get(CHAT_DATA_KEY_SELECTED_PRICE_GROUP, None))
+                        price = meal.get_price(server_tools.get_pricegroup(chat_data))
                         if price != 0:
                             out += ': <u>{:,.2f}€</u>'.format(price)
 
@@ -267,7 +277,7 @@ class Server:
         data = query_data_dict['data']
 
         if callback_type is CallbackType.selected_date:
-            selected_canteen = self.get_user_selected_canteen(context=context)
+            selected_canteen = server_tools.get_user_selected_canteen(context=context)
 
             timestamp = datetime.strptime(data, '%d.%m.%Y')
             out = self._get_reply_text(context.chat_data, timestamp=timestamp)
@@ -277,7 +287,7 @@ class Server:
                 days=self.canteen_data[selected_canteen])
             query.edit_message_text(text=out, parse_mode='HTML', reply_markup=keyboard)
         elif callback_type is CallbackType.selected_canteen:
-            context.chat_data[CHAT_DATA_KEY_SELECTED_CANTEEN] = data
+            context.chat_data[keys.CHAT_DATA_KEY_SELECTED_CANTEEN] = data
             query.edit_message_text(text=f'<strong>{Day.CANTEEN_NAMES[data]}</strong> wurde ausgewählt.',
                                     parse_mode='HTML',
                                     reply_markup=keyboards.get_callback_keyboard(
@@ -288,7 +298,7 @@ class Server:
         elif callback_type is CallbackType.reselect_canteen:
             self.set_canteen(query, context)
         elif callback_type is CallbackType.selected_set_price_group:
-            context.chat_data[CHAT_DATA_KEY_SELECTED_PRICE_GROUP] = data
+            context.chat_data[keys.CHAT_DATA_KEY_SELECTED_PRICE_GROUP] = data
 
             query.edit_message_text(f'Preisgruppe <strong>{Meal.get_price_group(data)}</strong> wurde ausgewählt.',
                                     parse_mode='HTML')

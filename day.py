@@ -76,6 +76,10 @@ class Day:
     def get_name(self):
         return self.CANTEEN_NAMES[self.canteen_key]
 
+    @classmethod
+    def get_all_names(cls) -> List:
+        return list(cls.CANTEEN_NAMES.values())
+
     def __str__(self) -> str:
         out = f'<{self.date.__str__()}: '
         for q_key, value in self.queue_dict.items():
