@@ -8,7 +8,7 @@ from typing import Union, Dict, Set
 import pytz
 import requests
 from telegram import Update, CallbackQuery
-from telegram.ext import Updater, CommandHandler, CallbackContext, PicklePersistence, CallbackQueryHandler
+from telegram.ext import Updater, CommandHandler, CallbackContext, PicklePersistence, CallbackQueryHandler, Dispatcher
 
 import callback_keyboards as keyboards
 from day import Day
@@ -49,9 +49,10 @@ class Server:
         update.message.reply_text('Wähle ein Mensa aus:', reply_markup=keyboard)
 
     def get_mensa_plan(self, update: Union[Update, CallbackQuery], context: CallbackContext):
-        out = self._get_reply_text(self.get_user_selected_canteen(context))
+        out = self._get_reply_text(self.get_user_selected_canteen(context=context))
 
-        keyboard = keyboards.get_select_dates_keyboard(days=self.canteen_data[self.get_user_selected_canteen(context)])
+        keyboard = keyboards.get_select_dates_keyboard(
+            days=self.canteen_data[self.get_user_selected_canteen(context=context)])
         update.message.reply_text(out, parse_mode='HTML', reply_markup=keyboard)
 
     @staticmethod
@@ -79,20 +80,25 @@ class Server:
         self.logger.warning('Update "%s" caused error "%s"', update, context.error)
 
     @staticmethod
-    def get_user_selected_canteen(context: CallbackContext):
-        return context.user_data.get(USER_DATA_KEY_SELECTED_CANTEEN, Day.CANTEEN_KEY_MOLTKE)
+    def get_user_selected_canteen(context: CallbackContext = None, chat_data: Dict = None):
+        assert not (context is None and chat_data is None)
+
+        if chat_data is not None:
+            return chat_data.get(USER_DATA_KEY_SELECTED_CANTEEN, Day.CANTEEN_KEY_ADENAUER)
+        else:
+            return context.chat_data.get(USER_DATA_KEY_SELECTED_CANTEEN, Day.CANTEEN_KEY_ADENAUER)
 
     def _send_menu_push_notifications(self):
         if datetime.now().strftime('%d.%m.%Y') in self.canteen_data.keys():
             self.logger.info('sending push')
-            dp = self.updater.dispatcher
+            dp: Dispatcher = self.updater.dispatcher
             chat_ids = dp.bot_data[BOT_DATA_KEY_PUSH_REGISTER]
 
-            keyboard = keyboards.get_select_dates_keyboard(
-                days=self.canteen_data[self.get_user_selected_canteen(dp)])
+            for c_id in chat_ids:
+                selected_canteen_id = self.get_user_selected_canteen(chat_data=dp.chat_data[c_id])
+                keyboard = keyboards.get_select_dates_keyboard(days=self.canteen_data[selected_canteen_id])
 
-            for c in chat_ids:
-                self.updater.bot.send_message(c, self._get_reply_text(self.get_user_selected_canteen(dp)),
+                self.updater.bot.send_message(c_id, self._get_reply_text(selected_canteen_id),
                                               parse_mode='HTML', reply_markup=keyboard)
         else:
             self.logger.info('no data available for today. not sending push')
@@ -193,7 +199,7 @@ class Server:
         days_dict = self.canteen_data[selected_canteen]
         if days_dict is not None and timestamp in days_dict.keys():
             canteen_day: Day = days_dict[timestamp]
-            out: str = f'Speisepläne der {canteen_day.get_name()} am <strong>{timestamp}</strong>:\n\n'
+            out: str = f'Speiseplan der {canteen_day.get_name()} am <strong>{timestamp}</strong>:\n\n'
 
             for queue in days_dict[timestamp].get_list():
                 if not queue.closed:
@@ -215,7 +221,8 @@ class Server:
                 out += '\n'
             return out
         else:
-            return f'👾 Für den <strong> {timestamp}</strong> gibt es noch keinen Mensa Plan. 👾'
+            return f'👾 Für den <strong> {timestamp}</strong> gibt es noch keinen Mensa Plan ' \
+                   f'({Day.CANTEEN_NAMES[selected_canteen]}) 👾'
 
     def callbacks(self, update, context: CallbackContext):
         """
@@ -233,16 +240,17 @@ class Server:
         data = query_data_dict['data']
 
         if callback_type is CallbackType.selected_date:
+            selected_canteen = self.get_user_selected_canteen(context=context)
 
             timestamp = datetime.strptime(data, '%d.%m.%Y')
-            out = self._get_reply_text(self.get_user_selected_canteen(context), timestamp=timestamp)
+            out = self._get_reply_text(selected_canteen, timestamp=timestamp)
 
             # edit the message previously sent by the bot
             keyboard = keyboards.get_select_dates_keyboard(
-                days=self.canteen_data[self.get_user_selected_canteen(context)])
+                days=self.canteen_data[selected_canteen])
             query.edit_message_text(text=out, parse_mode='HTML', reply_markup=keyboard)
         elif callback_type is CallbackType.selected_canteen:
-            context.user_data[USER_DATA_KEY_SELECTED_CANTEEN] = data
+            context.chat_data[USER_DATA_KEY_SELECTED_CANTEEN] = data
             query.edit_message_text(text=f'<strong>{Day.CANTEEN_NAMES[data]}</strong> wurde ausgewählt.',
                                     parse_mode='HTML',
                                     reply_markup=keyboards.get_callback_keyboard(
