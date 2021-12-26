@@ -2,7 +2,6 @@ import json
 import logging
 import pathlib
 from datetime import datetime
-from enum import Enum
 from typing import Union, Dict, Set
 
 import pytz
@@ -13,17 +12,10 @@ from telegram.ext import Updater, CommandHandler, CallbackContext, PicklePersist
 import callback_keyboards as keyboards
 import keys as keys
 import server_tools as server_tools
+from callback_type import CallbackType
 from day import Day
 from meal import Meal
 from scheduler import TimeScheduler, Task
-
-
-class CallbackType(Enum):
-    selected_date = 'selected_date'
-    selected_canteen = 'selected_canteen'
-    reselect_canteen = 'select_another_canteen'
-    selected_show_menu = 'show_menu'
-    selected_set_price_group = 'selected_set_price_group'
 
 
 class Server:
@@ -41,13 +33,8 @@ class Server:
 
     # api call handlers
     @staticmethod
-    def set_canteen(update, _):
-        keyboard = keyboards.get_callback_keyboard(callback_type=CallbackType.selected_canteen,
-                                                   data=list(Day.CANTEEN_NAMES.keys()),
-                                                   action_text=list(Day.CANTEEN_NAMES.values()),
-                                                   one_per_row=True
-                                                   )
-        update.message.reply_text('Wähle ein Mensa aus:', reply_markup=keyboard)
+    def set_canteen(update, context):
+        server_tools.set_canteen(context, update.message.reply_text)
 
     def get_mensa_plan(self, update: Union[Update, CallbackQuery], context: CallbackContext):
         out = self._get_reply_text(context.chat_data)
@@ -296,7 +283,7 @@ class Server:
                                         ['Speiseplan anzeigen',
                                          'Andere Mensa wählen']))
         elif callback_type is CallbackType.reselect_canteen:
-            self.set_canteen(query, context)
+            server_tools.set_canteen(context, query.edit_message_text)
         elif callback_type is CallbackType.selected_set_price_group:
             context.chat_data[keys.CHAT_DATA_KEY_SELECTED_PRICE_GROUP] = data
 

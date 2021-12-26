@@ -77,6 +77,10 @@ class Day:
         return self.CANTEEN_NAMES[self.canteen_key]
 
     @classmethod
+    def get_name_of(cls, key):
+        return cls.CANTEEN_NAMES[key]
+
+    @classmethod
     def get_all_names(cls) -> List:
         return list(cls.CANTEEN_NAMES.values())
 
