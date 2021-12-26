@@ -1,7 +1,7 @@
 import json
 import logging
 import pathlib
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 from typing import Union, Dict, Set
 
@@ -56,6 +56,14 @@ class Server:
 
         keyboard = keyboards.get_select_dates_keyboard(
             days=self.canteen_data[self.get_user_selected_canteen(context=context)])
+        update.message.reply_text(out, parse_mode='HTML', reply_markup=keyboard)
+
+    def get_mensa_plan_all(self, update: Union[Update, CallbackQuery], context: CallbackContext):
+        out = 'Alle derzeit verfügbaren Tage:'
+
+        keyboard = keyboards.get_select_dates_keyboard(
+            days=self.canteen_data[self.get_user_selected_canteen(context=context)],
+            show_all=True)
         update.message.reply_text(out, parse_mode='HTML', reply_markup=keyboard)
 
     @staticmethod
@@ -154,6 +162,7 @@ class Server:
         # on different commands - answer in Telegram
         dp.add_handler(CommandHandler("start", self.start))
         dp.add_handler(CommandHandler("menu", self.get_mensa_plan))
+        dp.add_handler(CommandHandler("menu_all", self.get_mensa_plan_all))
         dp.add_handler(CommandHandler("mensa", self.set_canteen))
         dp.add_handler(CommandHandler("push", self.push_register))
         dp.add_handler(CommandHandler("price", self.set_price_group))
@@ -208,7 +217,7 @@ class Server:
         self.canteen_data = tmp_canteen_data
 
     def _get_reply_text(self, chat_data: dict, timestamp: datetime = None) -> Union[str, None]:
-        timestamp = (timestamp if timestamp else datetime.now() + timedelta(days=8)).strftime('%d.%m.%Y')
+        timestamp = (timestamp if timestamp else datetime.now()).strftime('%d.%m.%Y')
 
         selected_canteen = self.get_user_selected_canteen(chat_data=chat_data)
 
@@ -281,7 +290,8 @@ class Server:
         elif callback_type is CallbackType.selected_set_price_group:
             context.chat_data[CHAT_DATA_KEY_SELECTED_PRICE_GROUP] = data
 
-            query.edit_message_text(f'Preisgruppe \'{Meal.get_price_group(data)}\' wurde ausgewählt.')
+            query.edit_message_text(f'Preisgruppe <strong>{Meal.get_price_group(data)}</strong> wurde ausgewählt.',
+                                    parse_mode='HTML')
         else:
             # show the menu by default
             self.get_mensa_plan(query, context)
