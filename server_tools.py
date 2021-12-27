@@ -26,8 +26,7 @@ def set_canteen(context: CallbackContext, chat_operation):
 
 
 def get_canteen_plan(chat_operation, canteen_data, chat_data: Dict, selected_timestamp: datetime = None, **kwargs):
-    selected_timestamp = selected_timestamp if selected_timestamp else datetime.now()
-    selected_timestamp_str = selected_timestamp.strftime('%d.%m.%Y')
+    selected_timestamp_str = (selected_timestamp if selected_timestamp else datetime.now()).strftime('%d.%m.%Y')
 
     selected_canteen = get_user_selected_canteen(chat_data=chat_data)
 
@@ -56,13 +55,15 @@ def get_canteen_plan(chat_operation, canteen_data, chat_data: Dict, selected_tim
                 # queue is closed on this day
                 out += f'<strong>{queue.name}</strong> - geschlossen\n'
             out += '\n'
+
+            # save the date
+            chat_data[keys.CHAT_DATA_PREVIOUSLY_SELECTED_DATE] = selected_timestamp_str
     else:
         out = f'👾 Für den <strong> {selected_timestamp_str}</strong> gibt es noch keinen Mensa Plan ' \
               f'({Day.CANTEEN_NAMES[selected_canteen]}) 👾'
 
     keyboard = keyboards.get_select_dates_keyboard(
         days=canteen_data[selected_canteen],
-        previous_timestamp=selected_timestamp
     )
     chat_operation(text=out, parse_mode='HTML', reply_markup=keyboard, **kwargs)
 

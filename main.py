@@ -221,15 +221,11 @@ class Server:
         data = query_data_dict['data']
 
         if callback_type is CallbackType.selected_date:
-            if len(data) == 1:
-                timestamp_sel = datetime.strptime(data[0], '%d.%m.%Y')
-                timestamp_prev = None
-            else:
-                timestamp_sel = datetime.strptime(data[0], '%d.%m.%Y')
-                timestamp_prev = datetime.strptime(data[1], '%d.%m.%Y')
+            timestamp_sel = datetime.strptime(data, '%d.%m.%Y')
 
             # only update the message if a new date was selected
-            if timestamp_sel != timestamp_prev:
+            prev_date = context.chat_data.get(keys.CHAT_DATA_PREVIOUSLY_SELECTED_DATE, None)
+            if prev_date is None or prev_date != data:
                 server_tools.get_canteen_plan(query.edit_message_text, self.canteen_data, context.chat_data,
                                               selected_timestamp=timestamp_sel)
 

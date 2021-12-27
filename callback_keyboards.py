@@ -16,7 +16,7 @@ def _german_weekday_name(name: str):
         return name
 
 
-def get_select_dates_keyboard(days: Dict, show_all=False, previous_timestamp: datetime = None) -> InlineKeyboardMarkup:
+def get_select_dates_keyboard(days: Dict, show_all=False, ) -> InlineKeyboardMarkup:
     count = 0
     delta_t = 0
     data = []
@@ -55,12 +55,11 @@ def get_select_dates_keyboard(days: Dict, show_all=False, previous_timestamp: da
                                  data=data,
                                  action_text=action_text,
                                  max_per_row=3 if show_all else None,
-                                 previous_timestamp=previous_timestamp
                                  )
 
 
 def get_callback_keyboard(callback_type: Union[CallbackType, List[CallbackType]], data: List, action_text: List,
-                          one_per_row=False, max_per_row=None, previous_timestamp: datetime = None):
+                          one_per_row=False, max_per_row=None, ):
     keyboard = []
 
     is_type_list = isinstance(callback_type, list) or isinstance(callback_type, tuple)
@@ -69,10 +68,8 @@ def get_callback_keyboard(callback_type: Union[CallbackType, List[CallbackType]]
 
         callback_data = {
             'type': callback_type_str,
-            'data': [data[index]],
+            'data': data[index],
         }
-        if previous_timestamp is not None:
-            callback_data['data'].append(previous_timestamp.strftime('%d.%m.%Y'))
 
         keyboard.append(
             InlineKeyboardButton(action_text[index],
