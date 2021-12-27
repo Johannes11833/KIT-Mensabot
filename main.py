@@ -4,8 +4,6 @@ import pathlib
 from datetime import datetime
 from typing import Union, Dict, Set
 
-import pytz
-import requests
 from telegram import Update, CallbackQuery
 from telegram.ext import Updater, CommandHandler, CallbackContext, PicklePersistence, CallbackQueryHandler, Dispatcher
 
@@ -13,9 +11,10 @@ import callback_keyboards as keyboards
 import keys as keys
 import server_tools as server_tools
 from callback_type import CallbackType
-from day import Day
+from canteenday import CanteenDay
 from meal import Meal
 from scheduler import TimeScheduler, Task
+from server_data import ServerData
 
 
 class Server:
@@ -25,7 +24,7 @@ class Server:
         self.server_config = server_config
 
         # cache the json data
-        self.canteen_data: Dict = {}
+        self.server_data: Union[ServerData, None] = None
 
         self.updater: Union[Updater, None] = None
 
@@ -37,19 +36,20 @@ class Server:
         server_tools.set_canteen(context, update.message.reply_text)
 
     def get_mensa_plan(self, update: Union[Update, CallbackQuery], context: CallbackContext):
-        server_tools.get_canteen_plan(update.message.reply_text, self.canteen_data, context.chat_data)
+        server_tools.get_canteen_plan(update.message.reply_text, self.server_data, context.chat_data)
 
     def get_mensa_plan_all(self, update: Union[Update, CallbackQuery], context: CallbackContext):
         out = 'Alle derzeit verfügbaren Tage:'
 
+        selected_canteen = server_tools.get_user_selected_canteen(chat_data=context.chat_data)
         keyboard = keyboards.get_select_dates_keyboard(
-            days=self.canteen_data[server_tools.get_user_selected_canteen(chat_data=context.chat_data)],
+            days=self.server_data.get_canteen(selected_canteen),
             show_all=True)
         update.message.reply_text(out, parse_mode='HTML', reply_markup=keyboard)
 
     @staticmethod
     def start(update, _):
-        all_canteens = Day.get_all_names().__str__().replace("'", "").replace('[', '').replace(']', '')
+        all_canteens = CanteenDay.get_canteen_names().__str__().replace("'", "").replace('[', '').replace(']', '')
 
         update.message.reply_text(
             'Moin Meister! '
@@ -101,7 +101,7 @@ class Server:
         self.logger.warning('Update "%s" caused error "%s"', update, context.error)
 
     def _send_menu_push_notifications(self):
-        if datetime.now().strftime('%d.%m.%Y') in self.canteen_data.keys():
+        if self.server_data.contains_timestamp(datetime.now()):
             self.logger.info('sending push')
             dp: Dispatcher = self.updater.dispatcher
             chat_ids = dp.bot_data[keys.BOT_DATA_KEY_PUSH_REGISTER]
@@ -109,7 +109,8 @@ class Server:
             for c_id in chat_ids:
                 chat_data = dp.chat_data[c_id]
 
-                server_tools.get_canteen_plan(self.updater.bot.send_message, self.canteen_data, chat_data, chat_id=c_id)
+                server_tools.get_canteen_plan(self.updater.bot.send_message, self.server_data, chat_data,
+                                              chat_id=c_id)
         else:
             self.logger.info('no data available for today. not sending push')
 
@@ -131,7 +132,9 @@ class Server:
         telegram_token = self.server_config['telegram_token']
 
         # fetch the data
-        self._fetch_mensa_menu()
+        self.server_data = ServerData(self.logger, self.server_config['api_user_name'],
+                                      self.server_config['api_password'])
+        self.server_data.fetch_mensa_menu()
 
         """Start the bot."""
         # Create the Updater and pass it your bot's token.
@@ -166,44 +169,13 @@ class Server:
         # schedule data refresh and push notifications
         ts = TimeScheduler()
         ts.add(Task(self.server_config.get('push_notification_time', '09:00'), self._send_menu_push_notifications))
-        ts.add(Task(self.server_config.get('data_refresh_time', '03:00'), self._fetch_mensa_menu))
+        ts.add(Task(self.server_config.get('data_refresh_time', '03:00'), self.server_data.fetch_mensa_menu))
         ts.start()
 
         # Run the bot until you press Ctrl-C or the process receives SIGINT,
         # SIGTERM or SIGABRT. This should be used most of the time, since
         # start_polling() is non-blocking and will stop the bot gracefully.
         self.updater.idle()
-
-    def _fetch_mensa_menu(self):
-        self.logger.info('refreshing data...')
-        tmp_canteen_data = {}
-
-        supported_canteens = Day.QUEUE_NAMES.keys()
-
-        for canteen_key in supported_canteens:
-
-            r = requests.get(f'https://www.sw-ka.de/json_interface/canteen/?mensa[]={canteen_key}',
-                             auth=(self.server_config['api_user_name'], self.server_config['api_password']))
-
-            if r.status_code == 200:
-                result: dict = r.json()[canteen_key]
-
-                days_dict: Dict[str, Day] = {}
-
-                # iterate over the days
-                for date_unix, day_json in result.items():
-                    # mensa uses (weird) local timestamp
-                    timestamp = datetime.fromtimestamp(int(date_unix), pytz.timezone('Europe/Berlin'))
-
-                    day = Day(canteen_key, day_json, timestamp)
-                    days_dict[timestamp.strftime('%d.%m.%Y')] = day
-
-                tmp_canteen_data[canteen_key] = days_dict
-            else:
-                # no valid data
-                tmp_canteen_data[canteen_key] = None
-
-        self.canteen_data = tmp_canteen_data
 
     def callbacks(self, update, context: CallbackContext):
         """
@@ -226,12 +198,12 @@ class Server:
             # only update the message if a new date was selected
             prev_date = context.chat_data.get(keys.CHAT_DATA_PREVIOUSLY_SELECTED_DATE, None)
             if prev_date is None or prev_date != data:
-                server_tools.get_canteen_plan(query.edit_message_text, self.canteen_data, context.chat_data,
+                server_tools.get_canteen_plan(query.edit_message_text, self.server_data, context.chat_data,
                                               selected_timestamp=timestamp_sel)
 
         elif callback_type is CallbackType.selected_canteen:
             context.chat_data[keys.CHAT_DATA_KEY_SELECTED_CANTEEN] = data
-            query.edit_message_text(text=f'<strong>{Day.CANTEEN_NAMES[data]}</strong> wurde ausgewählt.',
+            query.edit_message_text(text=f'<strong>{CanteenDay.get_name_of(data)}</strong> wurde ausgewählt.',
                                     parse_mode='HTML',
                                     reply_markup=keyboards.get_callback_keyboard(
                                         [CallbackType.selected_show_menu, CallbackType.reselect_canteen],

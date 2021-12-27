@@ -5,34 +5,37 @@ import requests
 from telegram.ext import CallbackContext
 
 import callback_keyboards as keyboards
+import canteen_properties as props
 import keys as keys
 from callback_type import CallbackType
-from day import Day
+from canteenday import CanteenDay
 from meal import Meal
+from server_data import ServerData
 
 
 # BOT MESSAGES
 
 def set_canteen(context: CallbackContext, chat_operation):
     keyboard = keyboards.get_callback_keyboard(callback_type=CallbackType.selected_canteen,
-                                               data=list(Day.CANTEEN_NAMES.keys()),
-                                               action_text=list(Day.CANTEEN_NAMES.values()),
+                                               data=CanteenDay.get_canteen_keys(),
+                                               action_text=CanteenDay.get_canteen_names(),
                                                one_per_row=True
                                                )
 
-    current = Day.get_name_of(get_user_selected_canteen(chat_data=context.chat_data))
+    current = CanteenDay.get_name_of(get_user_selected_canteen(chat_data=context.chat_data))
     chat_operation(text=f'Aktuell ausgewählt: <strong>{current}</strong> \n\nMensa ändern:',
                    reply_markup=keyboard, parse_mode='HTML')
 
 
-def get_canteen_plan(chat_operation, canteen_data, chat_data: Dict, selected_timestamp: datetime = None, **kwargs):
+def get_canteen_plan(chat_operation, canteen_data: ServerData, chat_data: Dict, selected_timestamp: datetime = None,
+                     **kwargs):
     selected_timestamp_str = (selected_timestamp if selected_timestamp else datetime.now()).strftime('%d.%m.%Y')
 
     selected_canteen = get_user_selected_canteen(chat_data=chat_data)
 
-    days_dict = canteen_data[selected_canteen]
+    days_dict = canteen_data.get_canteen(selected_canteen)
     if days_dict is not None and selected_timestamp_str in days_dict.keys():
-        canteen_day: Day = days_dict[selected_timestamp_str]
+        canteen_day: CanteenDay = days_dict[selected_timestamp_str]
         out: str = f'Speiseplan der {canteen_day.get_name()} am <strong>{selected_timestamp_str}</strong>:\n\n'
 
         for queue in days_dict[selected_timestamp_str].get_list():
@@ -60,10 +63,10 @@ def get_canteen_plan(chat_operation, canteen_data, chat_data: Dict, selected_tim
             chat_data[keys.CHAT_DATA_PREVIOUSLY_SELECTED_DATE] = selected_timestamp_str
     else:
         out = f'👾 Für den <strong> {selected_timestamp_str}</strong> gibt es noch keinen Mensa Plan ' \
-              f'({Day.CANTEEN_NAMES[selected_canteen]}) 👾'
+              f'({CanteenDay.get_name_of(selected_canteen)}) 👾'
 
     keyboard = keyboards.get_select_dates_keyboard(
-        days=canteen_data[selected_canteen],
+        days=days_dict,
     )
     chat_operation(text=out, parse_mode='HTML', reply_markup=keyboard, **kwargs)
 
@@ -71,7 +74,7 @@ def get_canteen_plan(chat_operation, canteen_data, chat_data: Dict, selected_tim
 # HELPER
 
 def get_user_selected_canteen(chat_data: Dict = None):
-    return chat_data.get(keys.CHAT_DATA_KEY_SELECTED_CANTEEN, Day.CANTEEN_KEY_ADENAUER)
+    return chat_data.get(keys.CHAT_DATA_KEY_SELECTED_CANTEEN, props.CANTEEN_KEY_ADENAUER)
 
 
 def get_meme(subreddit: str = None) -> Dict:
