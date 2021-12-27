@@ -72,14 +72,15 @@ class Server:
                                   parse_mode='HTML', disable_web_page_preview=True)
         update.message.reply_photo(result['url'])
 
-    @staticmethod
-    def push_register(update: Update, context: CallbackContext):
+    def push_register(self, update: Update, context: CallbackContext):
         register: Set = context.bot_data[keys.BOT_DATA_KEY_PUSH_REGISTER]
 
         chat_id = update.message.chat_id
         if chat_id not in register:
             register.add(chat_id)
-            update.message.reply_text('Automatische Benachrichtigungen wurden aktiviert ✅')
+            update.message.reply_text('Automatische Benachrichtigungen wurden aktiviert ✅'
+                                      f'\nDu wirst von nun an automatische, tägliche Updates bekommen '
+                                      f'(etwa gegen {self.server_config[keys.SERVER_CONFIG_PUSH_NOTIFICATION_TIME]}).')
         else:
             register.remove(chat_id)
             update.message.reply_text('Automatische Benachrichtigungen wurden deaktiviert ❌ '
@@ -168,8 +169,10 @@ class Server:
 
         # schedule data refresh and push notifications
         ts = TimeScheduler()
-        ts.add(Task(self.server_config.get('push_notification_time', '09:00'), self._send_menu_push_notifications))
-        ts.add(Task(self.server_config.get('data_refresh_time', '03:00'), self.server_data.fetch_mensa_menu))
+        ts.add(Task(self.server_config.get(keys.SERVER_CONFIG_PUSH_NOTIFICATION_TIME, '09:00'),
+                    self._send_menu_push_notifications))
+        ts.add(Task(self.server_config.get(keys.SERVER_CONFIG_DATA_REFRESH_TIME, '03:00'),
+                    self.server_data.fetch_mensa_menu))
         ts.start()
 
         # Run the bot until you press Ctrl-C or the process receives SIGINT,
