@@ -16,7 +16,7 @@ def _german_weekday_name(name: str):
         return name
 
 
-def get_select_dates_keyboard(days: Dict, show_all=False) -> InlineKeyboardMarkup:
+def get_select_dates_keyboard(days: Dict, show_all=False, previous_timestamp: datetime = None) -> InlineKeyboardMarkup:
     count = 0
     delta_t = 0
     data = []
@@ -54,20 +54,30 @@ def get_select_dates_keyboard(days: Dict, show_all=False) -> InlineKeyboardMarku
     return get_callback_keyboard(callback_type=CallbackType.selected_date,
                                  data=data,
                                  action_text=action_text,
-                                 max_per_row=3 if show_all else None
+                                 max_per_row=3 if show_all else None,
+                                 previous_timestamp=previous_timestamp
                                  )
 
 
 def get_callback_keyboard(callback_type: Union[CallbackType, List[CallbackType]], data: List, action_text: List,
-                          one_per_row=False, max_per_row=None):
+                          one_per_row=False, max_per_row=None, previous_timestamp: datetime = None):
     keyboard = []
 
     is_type_list = isinstance(callback_type, list) or isinstance(callback_type, tuple)
     for index in range(0, len(action_text)):
-        d_type_str = callback_type[index].value if is_type_list else callback_type.value
+        callback_type_str = callback_type[index].value if is_type_list else callback_type.value
+
+        callback_data = {
+            'type': callback_type_str,
+            'data': [data[index]],
+        }
+        if previous_timestamp is not None:
+            callback_data['data'].append(previous_timestamp.strftime('%d.%m.%Y'))
+
         keyboard.append(
             InlineKeyboardButton(action_text[index],
-                                 callback_data=json.dumps({'type': d_type_str, 'data': data[index]})), )
+                                 callback_data=json.dumps(callback_data)),
+        )
 
     if one_per_row:
         return InlineKeyboardMarkup([[item] for item in keyboard])
