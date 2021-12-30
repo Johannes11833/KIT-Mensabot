@@ -111,7 +111,9 @@ class Server:
                 chat_data = dp.chat_data[c_id]
 
                 server_tools.get_canteen_plan(self.updater.bot.send_message, self.server_data, chat_data,
-                                              chat_id=c_id)
+                                              send_if_canteen_closed=False, chat_id=c_id)
+
+            self.logger.info('sending push done')
         else:
             self.logger.info('no data available for today. not sending push')
 

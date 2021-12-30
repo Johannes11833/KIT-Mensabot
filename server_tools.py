@@ -28,7 +28,7 @@ def set_canteen(context: CallbackContext, chat_operation):
 
 
 def get_canteen_plan(chat_operation, canteen_data: ServerData, chat_data: Dict, selected_timestamp: datetime = None,
-                     **kwargs):
+                     send_if_canteen_closed=True, **kwargs) -> bool:
     selected_timestamp_str = (selected_timestamp if selected_timestamp else datetime.now()).strftime('%d.%m.%Y')
 
     selected_canteen = get_user_selected_canteen(chat_data=chat_data)
@@ -36,6 +36,11 @@ def get_canteen_plan(chat_operation, canteen_data: ServerData, chat_data: Dict, 
     days_dict = canteen_data.get_canteen(selected_canteen)
     if days_dict is not None and selected_timestamp_str in days_dict.keys():
         canteen_day: CanteenDay = days_dict[selected_timestamp_str]
+
+        if not send_if_canteen_closed and canteen_day.get_canteen_closed():
+            # don't send the plan if send_if_canteen_closed is False and the canteen is closed
+            return False
+
         out: str = f'Speiseplan der {canteen_day.get_name()} am <strong>{selected_timestamp_str}</strong>:\n\n'
 
         for queue in days_dict[selected_timestamp_str].get_list():
@@ -69,6 +74,8 @@ def get_canteen_plan(chat_operation, canteen_data: ServerData, chat_data: Dict, 
         days=days_dict,
     )
     chat_operation(text=out, parse_mode='HTML', reply_markup=keyboard, **kwargs)
+
+    return True
 
 
 # HELPER

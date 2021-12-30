@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 
 from meal import Meal
 
@@ -10,7 +10,7 @@ class Queue:
     def __init__(self, name: str, queue_json: Dict) -> None:
         super().__init__()
         self.name = name
-        self.meals: Dict[str:Meal] = []
+        self.meals: List[Meal] = []
 
         self.closed = queue_json is None or self.KEY_NAME_NO_DATA in queue_json[0].keys()
 

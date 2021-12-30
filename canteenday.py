@@ -18,9 +18,14 @@ class CanteenDay:
         self.date: datetime = date
         self.canteen_key = canteen_key
         self.queue_dict: Dict[str, Queue] = {}
+        self._canteen_closed = True
 
         for q_key, q_name in props.QUEUE_NAMES[canteen_key].items():
-            self.queue_dict[q_key] = Queue(q_name, data[q_key])
+            q = Queue(q_name, data[q_key])
+            self.queue_dict[q_key] = q
+
+            if not q.closed:
+                self._canteen_closed = False
 
     def get_list(self) -> List[Queue]:
         return list(self.queue_dict.values())
@@ -39,6 +44,10 @@ class CanteenDay:
     @staticmethod
     def get_canteen_keys() -> List:
         return list(props.CANTEEN_NAMES.keys())
+
+    def get_canteen_closed(self):
+
+        return self._canteen_closed
 
     def __str__(self) -> str:
         out = f'<{self.date.__str__()}: '

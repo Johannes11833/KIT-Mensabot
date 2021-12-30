@@ -59,7 +59,6 @@ class ServerData:
         timestamp_str = timestamp.strftime('%d.%m.%Y')
 
         for canteen_data in self._data.values():
-            print(canteen_data)
             if timestamp_str in canteen_data.keys():
                 return True
 
