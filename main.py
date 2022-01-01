@@ -11,8 +11,6 @@ import callback_keyboards as keyboards
 import keys as keys
 import server_tools as server_tools
 from callback_type import CallbackType
-from canteenday import CanteenDay
-from meal import Meal
 from scheduler import TimeScheduler, Task
 from server_data import ServerData
 
@@ -48,21 +46,8 @@ class Server:
         update.message.reply_text(out, parse_mode='HTML', reply_markup=keyboard)
 
     @staticmethod
-    def start(update, _):
-        all_canteens = CanteenDay.get_canteen_names().__str__().replace("'", "").replace('[', '').replace(']', '')
-
-        update.message.reply_text(
-            'Moin Meister! '
-            'Ich bin ein Bot, der dir den aktuellen Speiseplan der Mensen in Karlsruhe anzeigen kann. '
-            '\n\n🏠 <strong>Unterstützte Mensen</strong>'
-            f"\n{all_canteens}"
-            '\n\n⚙️ <strong>Konfiguration</strong>'
-            '\n• /mensa legt die zu verwendende Mensa fest'
-            '\n• /price legt die Preisklasse fest. Default ist Student.'
-            '\n• /push aktiviert/ deaktiviert automatische Benachrichtigungen'
-            '\n\n🎉 <strong>Anderes</strong>'
-            '\n• /memes hochwertige, zufällige Memes vom KaIT Subreddit',
-            parse_mode='HTML')
+    def start(update, context: CallbackContext):
+        server_tools.get_start(update.message.reply_text, update, context)
 
     @staticmethod
     def memes(update: Update, _):
@@ -88,14 +73,7 @@ class Server:
 
     @staticmethod
     def set_price_group(update: Update, context: CallbackContext):
-        keyboard = keyboards.get_callback_keyboard(callback_type=CallbackType.selected_set_price_group,
-                                                   data=Meal.get_price_group_keys(),
-                                                   action_text=Meal.get_price_group_names(),
-                                                   one_per_row=True
-                                                   )
-        current = Meal.get_price_group_name(server_tools.get_pricegroup(context.chat_data))
-        update.message.reply_text(f'Aktuell eingestellte Preisgruppe: <strong>{current}</strong>\n\n'
-                                  f'Preisgruppe ändern:', reply_markup=keyboard, parse_mode='HTML')
+        server_tools.get_price_group_selection(update.message.reply_text, context)
 
     def error(self, update, context):
         """Log Errors caused by Updates."""
@@ -182,7 +160,7 @@ class Server:
         # start_polling() is non-blocking and will stop the bot gracefully.
         self.updater.idle()
 
-    def callbacks(self, update, context: CallbackContext):
+    def callbacks(self, update: Update, context: CallbackContext):
         """
         callback method the selection of a day
         """
@@ -197,7 +175,11 @@ class Server:
         callback_type = CallbackType(query_data_dict['type'])
         data = query_data_dict['data']
 
-        if callback_type is CallbackType.selected_date:
+        if callback_type is CallbackType.selected_show_start:
+            server_tools.get_start(query.edit_message_text, query, context)
+        elif callback_type is CallbackType.selected_configuration:
+            server_tools.get_config(query.edit_message_text, query, context)
+        elif callback_type is CallbackType.selected_date:
             timestamp_sel = datetime.strptime(data, '%d.%m.%Y')
 
             # only update the message if a new date was selected
@@ -205,23 +187,22 @@ class Server:
             if prev_date is None or prev_date != data:
                 server_tools.get_canteen_plan(query.edit_message_text, self.server_data, context.chat_data,
                                               selected_timestamp=timestamp_sel)
+        elif callback_type is CallbackType.selected_toggle_notifications:
+            server_tools.toggle_push(query, context)
 
-        elif callback_type is CallbackType.selected_canteen:
+            server_tools.get_config(query.edit_message_text, query, context)
+        elif callback_type is CallbackType.updated_canteen:
             context.chat_data[keys.CHAT_DATA_KEY_SELECTED_CANTEEN] = data
-            query.edit_message_text(text=f'<strong>{CanteenDay.get_name_of(data)}</strong> wurde ausgewählt.',
-                                    parse_mode='HTML',
-                                    reply_markup=keyboards.get_callback_keyboard(
-                                        [CallbackType.selected_show_menu, CallbackType.reselect_canteen],
-                                        [None, None],
-                                        ['Speiseplan anzeigen',
-                                         'Andere Mensa wählen']))
-        elif callback_type is CallbackType.reselect_canteen:
+
+            server_tools.get_config(query.edit_message_text, query, context)
+        elif callback_type is CallbackType.selected_set_canteen:
             server_tools.set_canteen(context, query.edit_message_text)
         elif callback_type is CallbackType.selected_set_price_group:
+            server_tools.get_price_group_selection(query.edit_message_text, context)
+        elif callback_type is CallbackType.updated_price_group:
             context.chat_data[keys.CHAT_DATA_KEY_SELECTED_PRICE_GROUP] = data
 
-            query.edit_message_text(f'Preisgruppe <strong>{Meal.get_price_group(data)}</strong> wurde ausgewählt.',
-                                    parse_mode='HTML')
+            server_tools.get_config(query.edit_message_text, query, context)
         else:
             # show the menu by default
             self.get_mensa_plan(query, context)
