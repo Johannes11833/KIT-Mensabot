@@ -50,6 +50,10 @@ class Server:
         server_tools.get_start(update.message.reply_text, update, context)
 
     @staticmethod
+    def config(update, context: CallbackContext):
+        server_tools.get_config(update.message.reply_text, update, context)
+
+    @staticmethod
     def memes(update: Update, _):
         result = server_tools.get_meme(subreddit='KaIT')
 
@@ -133,6 +137,7 @@ class Server:
 
         # on different commands - answer in Telegram
         dp.add_handler(CommandHandler("start", self.start))
+        dp.add_handler(CommandHandler("config", self.config))
         dp.add_handler(CommandHandler("menu", self.get_mensa_plan))
         dp.add_handler(CommandHandler("menu_all", self.get_mensa_plan_all))
         dp.add_handler(CommandHandler("mensa", self.set_canteen))
