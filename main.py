@@ -89,6 +89,11 @@ class Server:
         """Log Errors caused by Updates."""
         self.logger.warning('Update "%s" caused error "%s"', update, context.error)
 
+    @staticmethod
+    def stats(update, context):
+        register: Set = context.bot_data[keys.BOT_DATA_KEY_PUSH_REGISTER]
+        update.message.reply_text(f'Push-Subscribers: {len(register)}')
+
     def _send_menu_push_notifications(self):
         if self.server_data.contains_timestamp(datetime.now()):
             self.logger.info('sending push')
@@ -149,6 +154,7 @@ class Server:
         dp.add_handler(CommandHandler("mensa", self.set_canteen))
         dp.add_handler(CommandHandler("push", self.push_register))
         dp.add_handler(CommandHandler("price", self.set_price_group))
+        dp.add_handler(CommandHandler("gimme_stats", self.stats))
         dp.add_handler(CommandHandler("memes", self.memes))
         dp.add_handler(CallbackQueryHandler(self.callbacks))  # handling inline buttons pressing
 
