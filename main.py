@@ -56,10 +56,16 @@ class Server:
     @staticmethod
     def memes(update: Update, _):
         result = server_tools.get_meme(subreddit='KaIT')
+        media_url: str = result['url']
+
+        if media_url.endswith('.gif'):
+            method = update.message.reply_animation
+        else:
+            method = update.message.reply_photo
 
         update.message.reply_text(f'Hier ein Post von KaIT:\n\n<a href="{result["postLink"]}">{result["title"]}</a>',
                                   parse_mode='HTML', disable_web_page_preview=True)
-        update.message.reply_photo(result['url'])
+        method(result['url'])
 
     def push_register(self, update: Update, context: CallbackContext):
         register: Set = context.bot_data[keys.BOT_DATA_KEY_PUSH_REGISTER]
