@@ -1,4 +1,5 @@
 import json
+import random
 from datetime import datetime, timedelta
 from typing import List, Dict, Union
 
@@ -55,7 +56,7 @@ def get_select_dates_keyboard(days: Dict, show_all=False, max_selections=4) -> I
 
     if not show_all:
         data.append(KEY_KEYBOARD_BUTTON_ID_SHOW_ALL_DATES)
-        action_text.append('🔎')
+        action_text.append(random.choices(['🔎', '🐮', '🐼', '💯', '🔑'], weights=(1000, 10, 10, 10, 1), k=1)[0])
 
     return get_callback_keyboard(callback_type=CallbackType.selected_date,
                                  data=data,
