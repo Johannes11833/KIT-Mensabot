@@ -6,6 +6,9 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 from main import CallbackType
 
+# CONSTANTS
+KEY_KEYBOARD_BUTTON_ID_SHOW_ALL_DATES = "keyboard_action_show_all"
+
 
 def _german_weekday_name(name: str):
     translations = {'Mon': 'Mo', 'Tue': 'Di', 'Wed': 'Mi', 'Thu': 'Do', 'Fri': 'Fr'}
@@ -16,14 +19,13 @@ def _german_weekday_name(name: str):
         return name
 
 
-def get_select_dates_keyboard(days: Dict, show_all=False, ) -> InlineKeyboardMarkup:
+def get_select_dates_keyboard(days: Dict, show_all=False, max_selections=4) -> InlineKeyboardMarkup:
     count = 0
     delta_t = 0
     data = []
     action_text = []
     timestamps = list(days.keys())
 
-    max_selections = 5
     while count < max_selections or show_all:
         ts_i = datetime.now() + timedelta(days=delta_t)
         ts_i_str = (datetime.now() + timedelta(days=delta_t)).strftime('%d.%m.%Y')
@@ -50,6 +52,10 @@ def get_select_dates_keyboard(days: Dict, show_all=False, ) -> InlineKeyboardMar
             action_text.append(name)
 
         delta_t += 1
+
+    if not show_all:
+        data.append(KEY_KEYBOARD_BUTTON_ID_SHOW_ALL_DATES)
+        action_text.append('🔎')
 
     return get_callback_keyboard(callback_type=CallbackType.selected_date,
                                  data=data,

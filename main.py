@@ -39,10 +39,7 @@ class Server:
     def get_mensa_plan_all(self, update: Union[Update, CallbackQuery], context: CallbackContext):
         out = 'Alle derzeit verfügbaren Tage:'
 
-        selected_canteen = server_tools.get_user_selected_canteen(chat_data=context.chat_data)
-        keyboard = keyboards.get_select_dates_keyboard(
-            days=self.server_data.get_canteen(selected_canteen),
-            show_all=True)
+        keyboard = self.get_date_picker_keyboard(context.chat_data)
         update.message.reply_text(out, parse_mode='HTML', reply_markup=keyboard)
 
     @staticmethod
@@ -197,13 +194,20 @@ class Server:
         elif callback_type is CallbackType.selected_configuration:
             server_tools.get_config(query.edit_message_text, query, context)
         elif callback_type is CallbackType.selected_date:
-            timestamp_sel = datetime.strptime(data, '%d.%m.%Y')
+            if data == keyboards.KEY_KEYBOARD_BUTTON_ID_SHOW_ALL_DATES:
+                # update the keyboard to show all available dates
+                keyboard = self.get_date_picker_keyboard(context.chat_data)
+                query.edit_message_reply_markup(reply_markup=keyboard)
 
-            # only update the message if a new date was selected
-            prev_date = context.chat_data.get(keys.CHAT_DATA_PREVIOUSLY_SELECTED_DATE, None)
-            if prev_date is None or prev_date != data:
+            else:
+                timestamp_sel = datetime.strptime(data, '%d.%m.%Y')
+
                 server_tools.get_canteen_plan(query.edit_message_text, self.server_data, context.chat_data,
-                                              selected_timestamp=timestamp_sel)
+                                              selected_timestamp=timestamp_sel,
+                                              previous_text=query.message.text_html,
+                                              keyboard_update_operation=query.edit_message_reply_markup,
+                                              previous_keyboard=query.message.reply_markup.inline_keyboard,
+                                              )
         elif callback_type is CallbackType.selected_toggle_notifications:
             server_tools.toggle_push(query, context)
 
@@ -223,6 +227,12 @@ class Server:
         else:
             # show the menu by default
             self.get_mensa_plan(query, context)
+
+    def get_date_picker_keyboard(self, chat_data):
+        selected_canteen = server_tools.get_user_selected_canteen(chat_data=chat_data)
+        return keyboards.get_select_dates_keyboard(
+            days=self.server_data.get_canteen(selected_canteen),
+            show_all=True)
 
 
 if __name__ == '__main__':

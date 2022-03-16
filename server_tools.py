@@ -27,10 +27,10 @@ def get_start(chat_operation, update, context: CallbackContext):
     chat_operation(
         'Moin Meister! '
         'Ich bin ein Bot, der dir den aktuellen Speiseplan der Mensen in Karlsruhe anzeigen kann. '
-        '\n\n🏠 <strong>Unterstützte Mensen</strong>'
+        '\n\n🏠 <b>Unterstützte Mensen</b>'
         f'\n{all_canteens}'
         f'{get_config_str(update, context)}'
-        '\n\n🎉 <strong>Anderes</strong>'
+        '\n\n🎉 <b>Anderes</b>'
         '\n• /memes hochwertige, zufällige Memes vom KaIT Subreddit',
         parse_mode='HTML', reply_markup=keyboard)
 
@@ -61,7 +61,7 @@ def get_price_group_selection(chat_operation, context: CallbackContext):
                                                one_per_row=True
                                                )
     current = Meal.get_price_group_name(get_pricegroup(context.chat_data))
-    chat_operation(f'Aktuell eingestellte Preisgruppe: <strong>{current}</strong>\n\n'
+    chat_operation(f'Aktuell eingestellte Preisgruppe: <b>{current}</b>\n\n'
                    f'Preisgruppe ändern:', reply_markup=keyboard, parse_mode='HTML')
 
 
@@ -73,12 +73,14 @@ def set_canteen(context: CallbackContext, chat_operation):
                                                )
 
     current = CanteenDay.get_name_of(get_user_selected_canteen(chat_data=context.chat_data))
-    chat_operation(text=f'Aktuell ausgewählt: <strong>{current}</strong> \n\nMensa ändern:',
+    chat_operation(text=f'Aktuell ausgewählt: <b>{current}</b> \n\nMensa ändern:',
                    reply_markup=keyboard, parse_mode='HTML')
 
 
 def get_canteen_plan(chat_operation, canteen_data: ServerData, chat_data: Dict, selected_timestamp: datetime = None,
-                     send_if_canteen_closed=True, **kwargs) -> bool:
+                     send_if_canteen_closed=True,
+                     previous_text: str = None, previous_keyboard=None, keyboard_update_operation=None,
+                     **kwargs) -> bool:
     selected_timestamp_str = (selected_timestamp if selected_timestamp else datetime.now()).strftime('%d.%m.%Y')
 
     selected_canteen = get_user_selected_canteen(chat_data=chat_data)
@@ -91,12 +93,12 @@ def get_canteen_plan(chat_operation, canteen_data: ServerData, chat_data: Dict, 
             # don't send the plan if send_if_canteen_closed is False and the canteen is closed
             return False
 
-        out: str = f'Speiseplan der {canteen_day.get_name()} am <strong>{selected_timestamp_str}</strong>:\n\n'
+        out: str = f'Speiseplan der {canteen_day.get_name()} am <b>{selected_timestamp_str}</b>:\n\n'
 
         for queue in days_dict[selected_timestamp_str].get_list():
             if not queue.closed:
                 # queue name
-                out += f'<strong>{queue.name}</strong>\n'
+                out += f'<b>{queue.name}</b>\n'
 
                 # meals
                 for meal in queue.meals:
@@ -111,18 +113,25 @@ def get_canteen_plan(chat_operation, canteen_data: ServerData, chat_data: Dict, 
                     out += '\n'
             else:
                 # queue is closed on this day
-                out += f'<strong>{queue.name}</strong> - geschlossen\n'
+                out += f'<b>{queue.name}</b> - geschlossen\n'
             out += '\n'
-
-            # save the date
-            chat_data[keys.CHAT_DATA_PREVIOUSLY_SELECTED_DATE] = selected_timestamp_str
     else:
-        out = f'👾 Für den <strong> {selected_timestamp_str}</strong> gibt es keinen Mensa Plan ' \
+        out = f'👾 Für den <b> {selected_timestamp_str}</b> gibt es keinen Mensa Plan ' \
               f'({CanteenDay.get_name_of(selected_canteen)}) 👾'
+
+    out = out.strip()
 
     keyboard = keyboards.get_select_dates_keyboard(
         days=days_dict,
     )
+
+    if previous_text and previous_text == out:
+        # don't publish the update because the text is the same
+        if keyboard_update_operation and previous_keyboard and previous_keyboard != keyboard.inline_keyboard:
+            # update the keyboard only, if it changed and keyboard_update_operation was provided
+            keyboard_update_operation(reply_markup=keyboard)
+        return False
+
     chat_operation(text=out, parse_mode='HTML', reply_markup=keyboard, **kwargs)
 
     return True
@@ -136,10 +145,10 @@ def get_config_str(update, context: CallbackContext):
     price_group = Meal.get_price_group_name(get_pricegroup(context.chat_data))
     push_active = get_push_activated(update, context)
 
-    return ('\n\n⚙ <strong>Konfiguration</strong>'
-            f'\n• Mensa: <strong>{user_canteen}</strong>'
-            f'\n• Preisgruppe: <strong>{price_group}</strong>'
-            f'\n• Benachrichtigungen: <strong>{"aktiviert 🔔" if push_active else "deaktiviert 🔕"}</strong>'
+    return ('\n\n⚙ <b>Konfiguration</b>'
+            f'\n• Mensa: <b>{user_canteen}</b>'
+            f'\n• Preisgruppe: <b>{price_group}</b>'
+            f'\n• Benachrichtigungen: <b>{"aktiviert 🔔" if push_active else "deaktiviert 🔕"}</b>'
             )
 
 
