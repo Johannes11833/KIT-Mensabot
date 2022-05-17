@@ -11,7 +11,7 @@ A telegram bot for accessing the menus of the canteens in Karlsruhe.
 
 A running demo can be found [here](https://t.me/ka_mensabot).
 ## Setup
-To run this app, add a `data` folder inside the projects root directory, containing the config file:
+To run this app, add a `data` folder inside the projects root directory, containing the config file (`config.json`):
 
 ```json
 {
