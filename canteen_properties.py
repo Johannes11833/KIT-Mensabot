@@ -1,6 +1,6 @@
 # canteen keys
 CANTEEN_KEY_ADENAUER = 'adenauerring'
-CANTEEN_KEY_MOLTKE = 'x1moltkestrasse'
+CANTEEN_KEY_MOLTKE = 'moltke'
 CANTEEN_KEY_ERZBERGER = 'erzberger'
 CANTEEN_KEY_GOTTESAUE = 'gottesaue'
 CANTEEN_KEY_HOLZGARTEN = 'holzgarten'
@@ -10,7 +10,6 @@ QUEUE_NAMES = {
     CANTEEN_KEY_ADENAUER: {
         'l1': 'Linie 1',
         'l2': 'Linie 2',
-        'l3': 'Linie 3',
         'l45': 'Linie 4',
         'l5': 'Linie 5',
         'update': 'L6 Update',
@@ -20,7 +19,13 @@ QUEUE_NAMES = {
         'aktion': '[kœri]werk',
     },
     CANTEEN_KEY_MOLTKE: {
-        'gut': 'Gut & Günstig'
+        'wahl1': 'Wahlessen 1',
+        'wahl2': 'Wahlessen 2',
+        'aktion': 'Aktionstheke',
+        'gut': 'Gut & Günstig',
+        'buffet': 'Buffet',
+        'schnitzelbar': 'Schnitzelbar',
+        'curryqueen': '[Kœri]werk'
     }, CANTEEN_KEY_ERZBERGER: {
         'wahl1': 'Wahlessen 1',
         'wahl2': 'Wahlessen 2',
