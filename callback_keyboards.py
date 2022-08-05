@@ -11,8 +11,9 @@ from main import CallbackType
 KEY_KEYBOARD_BUTTON_ID_SHOW_ALL_DATES = "keyboard_action_show_all"
 
 
-def _german_weekday_name(name: str):
+def german_weekday_name(date: datetime):
     translations = {'Mon': 'Mo', 'Tue': 'Di', 'Wed': 'Mi', 'Thu': 'Do', 'Fri': 'Fr'}
+    name = date.strftime('%a')
 
     if name in translations.keys():
         return translations[name]
@@ -45,7 +46,7 @@ def get_select_dates_keyboard(days: Dict, show_all=False, max_selections=4) -> I
             elif delta_t == 1:
                 name = 'Morgen'
             elif delta_t < 7:
-                name = _german_weekday_name(ts_i.strftime('%a'))
+                name = german_weekday_name(ts_i)
             else:
                 name = ts_i.strftime('%d.%m')
 

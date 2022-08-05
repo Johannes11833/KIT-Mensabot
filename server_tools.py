@@ -83,7 +83,8 @@ def get_canteen_plan(chat_operation, canteen_data: ServerData, chat_data: Dict, 
                      send_if_canteen_closed=True,
                      previous_text: str = None, previous_keyboard=None, keyboard_update_operation=None,
                      **kwargs) -> bool:
-    selected_timestamp_str = (selected_timestamp if selected_timestamp else datetime.now()).strftime('%d.%m.%Y')
+    selected_timestamp = selected_timestamp if selected_timestamp else datetime.now()
+    selected_timestamp_str = selected_timestamp.strftime('%d.%m.%Y')
 
     selected_canteen = get_user_selected_canteen(chat_data=chat_data)
 
@@ -95,7 +96,8 @@ def get_canteen_plan(chat_operation, canteen_data: ServerData, chat_data: Dict, 
             # don't send the plan if send_if_canteen_closed is False and the canteen is closed
             return False
 
-        out: str = f'Speiseplan der {canteen_day.get_name()} am <b>{selected_timestamp_str}</b>:\n\n'
+        out: str = f'Speiseplan der {canteen_day.get_name()} am ' \
+                   f'<b>{keyboards.german_weekday_name(selected_timestamp)}, den {selected_timestamp_str}</b>:\n\n'
 
         for queue in days_dict[selected_timestamp_str].get_list():
             if not queue.closed:
