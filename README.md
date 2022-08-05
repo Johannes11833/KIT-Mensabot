@@ -1,3 +1,4 @@
+![example workflow](https://github.com/Johannes11833/KIT-Mensabot/actions/workflows/docker-ci.yml/badge.svg)
 # KIT-Mensabot
 
 A telegram bot for accessing the menus of the canteens in Karlsruhe.
