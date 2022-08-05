@@ -9,8 +9,9 @@ A telegram bot for accessing the menus of the canteens in Karlsruhe.
 - Select a centeen and get daily automatic menu updates.
 - Get random content from [r/KaIT](https://www.reddit.com/r/KaIT/)
 ## Demo
+<img title="a title" alt="Alt text" src="docu/telegram_qr_code.svg" width="80">
 
-A running demo can be found [here](https://t.me/ka_mensabot).
+A running demo of the telegram bot can be found [here](https://t.me/ka_mensabot).
 ## Setup
 To run this app, add a `data` folder inside the projects root directory, containing the config file (`config.json`):
 
