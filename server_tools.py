@@ -16,7 +16,9 @@ from server_data import ServerData
 # BOT MESSAGES
 
 def get_start(chat_operation, update, context: CallbackContext):
-    all_canteens = CanteenDay.get_canteen_names().__str__().replace("'", "").replace('[', '').replace(']', '')
+    all_canteens = ''
+    for canteen_short in CanteenDay.get_canteen_names_short():
+        all_canteens += f'\n• {canteen_short}'
 
     keyboard = keyboards.get_callback_keyboard(
         callback_type=[CallbackType.selected_show_menu, CallbackType.selected_configuration],
@@ -28,7 +30,7 @@ def get_start(chat_operation, update, context: CallbackContext):
         'Moin Meister! '
         'Ich bin ein Bot, der dir den aktuellen Speiseplan der Mensen in Karlsruhe anzeigen kann. '
         '\n\n🏠 <b>Unterstützte Mensen</b>'
-        f'\n{all_canteens}'
+        f'{all_canteens}'
         f'{get_config_str(update, context)}'
         '\n\n🎉 <b>Anderes</b>'
         '\n• /memes hochwertige, zufällige Memes vom KaIT Subreddit',

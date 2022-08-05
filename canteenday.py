@@ -43,6 +43,10 @@ class CanteenDay:
         return list(props.CANTEEN_NAMES.values())
 
     @staticmethod
+    def get_canteen_names_short() -> List:
+        return list(props.CANTEEN_NAMES_SHORT.values())
+
+    @staticmethod
     def get_canteen_keys() -> List:
         return list(props.CANTEEN_NAMES.keys())
 

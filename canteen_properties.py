@@ -52,3 +52,12 @@ CANTEEN_NAMES = {
     CANTEEN_KEY_HOLZGARTEN: 'Mensa I Holzgartenstraße (Stuttgart-Mitte)',
     CANTEEN_KEY_PFORZHEIM: 'Mensa Fachhochschule Pforzheim'
 }
+
+CANTEEN_NAMES_SHORT = {
+    CANTEEN_KEY_ADENAUER: 'Adenauer Ring',
+    CANTEEN_KEY_MOLTKE: 'Moltkestraße',
+    CANTEEN_KEY_ERZBERGER: 'Erzbergerstraße',
+    CANTEEN_KEY_GOTTESAUE: 'Schloss Gottesaue',
+    CANTEEN_KEY_HOLZGARTEN: 'Holzgartenstraße (Stuttgart-Mitte)',
+    CANTEEN_KEY_PFORZHEIM: 'Fachhochschule Pforzheim'
+}
