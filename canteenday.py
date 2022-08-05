@@ -21,11 +21,12 @@ class CanteenDay:
         self._canteen_closed = True
 
         for q_key, q_name in props.QUEUE_NAMES[canteen_key].items():
-            q = Queue(q_name, data[q_key])
-            self.queue_dict[q_key] = q
+            if q_key in data.keys():
+                q = Queue(q_name, data[q_key])
+                self.queue_dict[q_key] = q
 
-            if not q.closed:
-                self._canteen_closed = False
+                if not q.closed:
+                    self._canteen_closed = False
 
     def get_list(self) -> List[Queue]:
         return list(self.queue_dict.values())

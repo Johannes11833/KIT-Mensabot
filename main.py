@@ -84,7 +84,7 @@ class Server:
 
     def error(self, update, context):
         """Log Errors caused by Updates."""
-        self.logger.warning('Update "%s" caused error "%s"', update, context.error)
+        self.logger.warning('Update "%s" caused error "%s"', update.message, context.error)
 
     @staticmethod
     def stats(update, context):
