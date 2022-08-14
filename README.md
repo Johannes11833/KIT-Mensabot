@@ -13,6 +13,7 @@ A telegram bot for accessing the menus of the canteens in Karlsruhe.
 ## Demo
 
 <img title="a title" alt="Alt text" src="docu/telegram_qr_code.svg" width="80">
+
 A running demo of the telegram bot can be found [here](https://t.me/ka_mensabot).
 
 ### Screenshots
