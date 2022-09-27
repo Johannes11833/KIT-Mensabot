@@ -4,8 +4,9 @@ import pathlib
 from datetime import datetime
 from typing import Union, Dict, Set
 
-from telegram import Update, CallbackQuery
-from telegram.ext import Updater, CommandHandler, CallbackContext, PicklePersistence, CallbackQueryHandler, Dispatcher
+from telegram import Update, CallbackQuery, ParseMode
+from telegram.ext import Updater, CommandHandler, CallbackContext, PicklePersistence, CallbackQueryHandler, Dispatcher, \
+    MessageHandler, Filters
 
 import callback_keyboards as keyboards
 import keys as keys
@@ -107,6 +108,15 @@ class Server:
         else:
             self.logger.info('no data available for today. not sending push')
 
+    @staticmethod
+    def text_handler(update: Update, context: CallbackContext):
+        update.message.reply_text(text='🙉 Ich bin leider nicht zum Chatten programmiert worden. 🙈'
+                                       '\nAber probier doch mal einen der folgenden Befehle:\n'
+                                       '\n• /start - Übersicht'
+                                       '\n• /menu - Speisekarte'
+                                       '\n• /config - Einstellungen'
+                                  , parse_mode=ParseMode.HTML)
+
     def start_server(self):
         # create Data folder and initialize PicklePersistence of the bot's data
         pathlib.Path('./data').mkdir(exist_ok=True)
@@ -154,7 +164,7 @@ class Server:
         dp.add_handler(CommandHandler("gimme_stats", self.stats))
         dp.add_handler(CommandHandler("memes", self.memes))
         dp.add_handler(CallbackQueryHandler(self.callbacks))  # handling inline buttons pressing
-
+        dp.add_handler(MessageHandler(Filters.text & (~Filters.command), self.text_handler))
         # log all errors
         dp.add_error_handler(self.error)
 
