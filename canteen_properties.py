@@ -10,6 +10,7 @@ QUEUE_NAMES = {
     CANTEEN_KEY_ADENAUER: {
         'l1': 'Linie 1',
         'l2': 'Linie 2',
+        'l3': 'Linie 3',
         'l45': 'Linie 4',
         'l5': 'Linie 5',
         'update': 'L6 Update',
