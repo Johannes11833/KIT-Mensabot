@@ -162,9 +162,9 @@ def get_user_selected_canteen(chat_data: Dict = None):
 
 def get_meme(subreddit: str = None) -> Dict:
     if subreddit is not None:
-        resp = requests.get(url=f'https://meme-api.herokuapp.com/gimme/{subreddit}')
+        resp = requests.get(url=f'https://meme-api.com/gimme/{subreddit}')
     else:
-        resp = requests.get(url='https://meme-api.herokuapp.com/gimme')
+        resp = requests.get(url='https://meme-api.com/gimme')
     return resp.json()
 
 
